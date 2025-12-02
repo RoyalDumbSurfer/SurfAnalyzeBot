@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>SurfAnalyze Web</title>
+    <link rel="stylesheet" href="/static/style.css">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+</head>
+<body>
+    <div class="container">
+        <h1>SurfAnalyze</h1>
+        
+        <form action="/upload" method="post" enctype="multipart/form-data">
+            <input type="file" name="file" required>
+            <button type="submit">Загрузить</button>
+        </form>
+
+        <!-- 🔥 Kook-o-Meter кнопка -->
+        <div style="margin-top: 25px; text-align: center;">
+            <a href="/kookometer" target="_blank">
+                <button style="
+                    padding: 10px 20px;
+                    background-color: #ff5e5e;
+                    color: white;
+                    border: none;
+                    border-radius: 10px;
+                    font-size: 16px;
+                    cursor: pointer;
+                    box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+                    transition: background 0.3s ease;">
+                    🤙 Узнать уровень Kook'a
+                </button>
+            </a>
+        </div>
+
+        {% if result %}
+            <div class="result">{{ result }}</div>
+        {% endif %}
+    </div>
+</body>
+</html>

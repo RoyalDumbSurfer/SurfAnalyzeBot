@@ -1,0 +1,96 @@
+<!-- Kook-o-Meter Component -->
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <title>Kook‑o‑Meter 9000™</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels"></script>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        background-color: #121212;
+        color: #fff;
+        text-align: center;
+        margin: 0;
+        padding: 2rem;
+      }
+      #gauge-container {
+        width: 300px;
+        margin: 2rem auto;
+      }
+      .result {
+        margin-top: 1.5rem;
+        font-size: 1.3rem;
+      }
+      button {
+        padding: 0.7rem 1.2rem;
+        background-color: #ff5e5e;
+        color: white;
+        border: none;
+        border-radius: 8px;
+        font-size: 1rem;
+        cursor: pointer;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>🔥 Kook-o-Meter 9000™ 🔥</h1>
+    <div id="gauge-container">
+      <canvas id="gauge"></canvas>
+    </div>
+    <div class="result" id="kookResult">Нажми кнопку, чтобы узнать уровень кукареллы!</div>
+    <button onclick="generateKookLevel()">Get Kooked</button>
+
+    <script>
+      const ctx = document.getElementById("gauge").getContext("2d");
+
+      const levels = [
+        { range: [0, 20], label: "Core Lord", message: "Ты родился на lineup’е. Чистый вайб." },
+        { range: [21, 40], label: "Soul Surfer", message: "Без лишнего пафоса, но с душой." },
+        { range: [41, 60], label: "Weekend Warrior", message: "Пять дней в офисе — два на пене." },
+        { range: [61, 80], label: "Semi‑Kooked", message: "Ты не мешаешь, но и не впечатляешь." },
+        { range: [81, 100], label: "Ultimate Kook", message: "Сел на softtop — и пошёл дропать всех!" }
+      ];
+
+      let gaugeChart = new Chart(ctx, {
+        type: "doughnut",
+        data: {
+          labels: ["Kook Level"],
+          datasets: [
+            {
+              label: "Kook Level",
+              data: [0, 100],
+              backgroundColor: ["#ff5e5e", "#2e2e2e"],
+              borderWidth: 0,
+              circumference: 180,
+              rotation: 270,
+              cutout: "80%",
+            },
+          ],
+        },
+        options: {
+          responsive: true,
+          plugins: {
+            datalabels: {
+              display: false,
+            },
+          },
+          animation: {
+            animateRotate: true,
+            duration: 1000,
+          },
+        },
+      });
+
+      function generateKookLevel() {
+        const randomLevel = Math.floor(Math.random() * 101);
+        gaugeChart.data.datasets[0].data[0] = randomLevel;
+        gaugeChart.data.datasets[0].data[1] = 100 - randomLevel;
+        gaugeChart.update();
+
+        const levelInfo = levels.find((lvl) => randomLevel >= lvl.range[0] && randomLevel <= lvl.range[1]);
+        document.getElementById("kookResult").innerHTML = `<strong>${levelInfo.label}</strong>: ${levelInfo.message}`;
+      }
+    </script>
+  </body>
+</html>

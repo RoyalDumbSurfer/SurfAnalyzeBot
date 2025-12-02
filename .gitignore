@@ -1,0 +1,32 @@
+# Виртуальное окружение
+venv/
+.env
+*.env
+
+# Кэш Python
+__pycache__/
+*.py[cod]
+*.pyo
+
+# Логи и временные файлы
+logs/
+*.log
+*.tmp
+
+# Скачанные медиа/загрузки
+downloads/
+media/
+videos/
+
+# Тестовые артефакты
+.coverage
+htmlcov/
+pytest_cache/
+
+# IDE / редакторы
+.vscode/
+.idea/
+*.swp
+
+# Docker артефакты
+*.pid
