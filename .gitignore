@@ -1,32 +1,45 @@
-# Виртуальное окружение
+# --- Python / env ---
 venv/
 .env
 *.env
 
-# Кэш Python
 __pycache__/
 *.py[cod]
 *.pyo
+*.pyd
 
-# Логи и временные файлы
+# --- Логи и временные файлы ---
 logs/
 *.log
 *.tmp
 
-# Скачанные медиа/загрузки
+# --- Загрузки и рабочие файлы (не для репо) ---
 downloads/
 media/
 videos/
+uploads/
+*.mp4
+*.mov
+*.avi
+*.jpg
+*.jpeg
+*.png
 
-# Тестовые артефакты
+# --- БД и локальные json-хранилища ---
+*.sqlite3
+*.db
+jobs_db.json
+
+# --- Тестовые артефакты ---
 .coverage
 htmlcov/
 pytest_cache/
 
-# IDE / редакторы
+# --- IDE / редакторы ---
 .vscode/
 .idea/
 *.swp
+*.swo
 
-# Docker артефакты
+# --- Docker / прочее ---
 *.pid
