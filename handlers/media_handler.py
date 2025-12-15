@@ -1,10 +1,9 @@
-# handlers/media_handler.py
+from __future__ import annotations
 
 from telebot import TeleBot
 from telebot.apihelper import ApiTelegramException
 from telebot.types import Message
 
-from config import settings
 from utils.logger import log_error, log_info, logger_message
 from handlers.base_handler import BaseHandler
 from services.media_service import MediaService
@@ -39,7 +38,6 @@ class MediaHandler(BaseHandler):
         file_type = "unknown"
 
         if bot is None:
-            # На всякий случай защита
             log_error("MediaHandler: bot is None")
             return
 
@@ -54,7 +52,7 @@ class MediaHandler(BaseHandler):
                 file_type = "video"
 
             else:
-                return  # не наша медиа
+                return
 
             # 2. Сохраняем файл локально
             filename, error = save_media_file(
@@ -74,15 +72,14 @@ class MediaHandler(BaseHandler):
                 )
                 return
 
-            local_path = filename
-
             # 3. Создаём задачу в очереди
             job = job_manager.create_job(
                 user_id=message.from_user.id,
-                file_path=str(local_path),
+                chat_id=message.chat.id,
+                file_path=str(filename),
             )
 
-            # 4. Ответ пользователю (hipster-стартап стиль)
+            # 4. Ответ пользователю
             bot.send_message(
                 chat_id=message.chat.id,
                 text=(
@@ -93,7 +90,7 @@ class MediaHandler(BaseHandler):
                     f"`ID: {job.id}`\n"
                     "`Статус: queued`\n\n"
                     "SurfAnalyze принял данные.\n"
-                    "Как только анализ завершится — вернём результат в этот же чат. 🌊"
+                    "Как только анализ завершится — вернём результат сюда 🌊"
                 ),
                 parse_mode="Markdown",
             )
@@ -111,8 +108,7 @@ class MediaHandler(BaseHandler):
             if "file is too big" in msg:
                 bot.send_message(
                     message.chat.id,
-                    "❌ Файл слишком тяжёлый для Telegram.\n"
-                    "Попробуй отправить его в более лёгком формате.",
+                    "❌ Файл слишком большой для Telegram.",
                 )
                 log_error(
                     "Файл слишком большой",
@@ -122,14 +118,13 @@ class MediaHandler(BaseHandler):
             else:
                 bot.send_message(
                     message.chat.id,
-                    "❌ Telegram немного завис. Попробуй ещё раз чуть позже.",
+                    "❌ Ошибка Telegram API. Попробуй позже.",
                 )
                 log_error("Telegram API ошибка", error=msg)
 
         except Exception as e:
             bot.send_message(
                 message.chat.id,
-                "❌ Что-то пошло не так при загрузке. "
-                "Команда уже смотрит на логи, попробуй ещё раз.",
+                "❌ Ошибка при обработке файла. Попробуй ещё раз.",
             )
             log_error("Ошибка в media_handler", error=str(e))

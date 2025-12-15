@@ -64,3 +64,6 @@ def process_jobs(poll_interval: float = 2.0) -> None:
             time.sleep(poll_interval)
     except KeyboardInterrupt:
         print("[Worker] Остановлен пользователем.")
+        
+if __name__ == "__main__":
+    process_jobs()

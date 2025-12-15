@@ -40,17 +40,21 @@ class JobManager:
 
     def _write(self, jobs: List[Job]) -> None:
         data = [job.to_dict() for job in jobs]
-        self.db_path.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
+        self.db_path.write_text(
+            json.dumps(data, ensure_ascii=False, indent=2),
+            encoding="utf-8",
+        )
 
     # --- Публичные методы ---
 
-    def create_job(self, user_id: int, file_path: str) -> Job:
+    def create_job(self, user_id: int, file_path: str, chat_id: int | None = None) -> Job:
         jobs = self._read()
         job_id = str(uuid.uuid4())
 
         job = Job(
             id=job_id,
             user_id=user_id,
+            chat_id=chat_id,
             file_path=file_path,
             status=JobStatus.QUEUED,
             created_at=datetime.utcnow(),
