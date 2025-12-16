@@ -78,7 +78,7 @@ class CommandHandler(BaseHandler):
         elif text == "🌐 Открыть web-app":
             self.bot.send_message(
                 message.chat.id,
-                f"🌐 Открой SurfAnalyze web-app:\n{WEBAPP_URL}"
+                f"🌐 Открой SurfAnalyze web-app:\n{https://1b09b7624da4.ngrok-free.app -> http://localhost:8000}"
             )
 
         else:

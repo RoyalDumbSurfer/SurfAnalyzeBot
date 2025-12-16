@@ -1,41 +1,199 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="ru">
 <head>
-    <meta charset="UTF-8">
-    <title>SurfAnalyze Web</title>
-    <link rel="stylesheet" href="/static/style.css">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-</head>
-<body>
-    <div class="container">
-        <h1>SurfAnalyze</h1>
-        
-        <form action="/upload" method="post" enctype="multipart/form-data">
-            <input type="file" name="file" required>
-            <button type="submit">Загрузить</button>
-        </form>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>SurfAnalyze — Video & Photo Surf Coaching</title>
 
-        <!-- 🔥 Kook-o-Meter кнопка -->
-        <div style="margin-top: 25px; text-align: center;">
-            <a href="/kookometer" target="_blank">
-                <button style="
-                    padding: 10px 20px;
-                    background-color: #ff5e5e;
-                    color: white;
-                    border: none;
-                    border-radius: 10px;
-                    font-size: 16px;
-                    cursor: pointer;
-                    box-shadow: 0 4px 12px rgba(0,0,0,0.2);
-                    transition: background 0.3s ease;">
-                    🤙 Узнать уровень Kook'a
-                </button>
-            </a>
+  <style>
+    :root{
+      --bg:#ffffff;
+      --text:#0b0f19;
+      --muted:#667085;
+      --line:#e6e8ec;
+      --soft:#f6f7f9;
+      --shadow: 0 8px 30px rgba(16, 24, 40, 0.08);
+      --radius: 18px;
+    }
+
+    *{box-sizing:border-box}
+    body{
+      margin:0;
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial;
+      background:
+        radial-gradient(900px 500px at 10% -10%, rgba(99,102,241,.10), transparent 60%),
+        radial-gradient(900px 500px at 90% 0%, rgba(16,185,129,.10), transparent 55%),
+        var(--bg);
+      color:var(--text);
+    }
+
+    .wrap{max-width:980px;margin:0 auto;padding:28px 18px 60px}
+
+    .top{
+      display:flex;justify-content:space-between;align-items:center;
+      border:1px solid var(--line);
+      border-radius:999px;
+      padding:12px 14px;
+      background:rgba(255,255,255,.75);
+    }
+
+    .brand{display:flex;align-items:center;gap:10px;font-weight:700}
+    .logo{
+      width:34px;height:34px;border-radius:10px;
+      display:grid;place-items:center;
+      background:linear-gradient(135deg, rgba(99,102,241,.18), rgba(16,185,129,.18));
+    }
+
+    .tag{
+      font-size:12px;padding:6px 10px;border-radius:999px;
+      border:1px solid var(--line);background:var(--soft);color:var(--muted);
+    }
+
+    .hero{
+      margin-top:22px;
+      display:grid;
+      grid-template-columns:1.2fr .8fr;
+      gap:18px;
+    }
+    @media(max-width:860px){.hero{grid-template-columns:1fr}}
+
+    .panel{
+      border:1px solid var(--line);
+      border-radius:var(--radius);
+      background:rgba(255,255,255,.9);
+      box-shadow:var(--shadow);
+      padding:22px;
+    }
+
+    h1{margin:0;font-size:38px;letter-spacing:-.04em}
+    .sub{margin-top:12px;color:var(--muted)}
+
+    .bullets{margin-top:18px;display:grid;gap:10px;font-size:14px}
+    .bullet{display:flex;gap:10px;align-items:center}
+    .dot{
+      width:22px;height:22px;border-radius:8px;
+      display:grid;place-items:center;
+      background:var(--soft);border:1px solid var(--line);
+    }
+
+    input[type=file]{
+      width:100%;
+      padding:10px;
+      border-radius:12px;
+      border:1px solid var(--line);
+    }
+
+    .btn{
+      border:1px solid var(--line);
+      border-radius:12px;
+      padding:11px 14px;
+      font-weight:600;
+      cursor:pointer;
+    }
+    .btn.primary{background:var(--text);color:#fff}
+    .btn.secondary{background:var(--soft);color:var(--text);text-decoration:none}
+
+    .row{display:flex;gap:10px;margin-top:12px;flex-wrap:wrap}
+
+    .dropzone{
+      margin-top:12px;
+      border:1px dashed rgba(0,0,0,.2);
+      border-radius:14px;
+      padding:14px 16px;
+      background:rgba(255,255,255,.65);
+      cursor:pointer;
+      transition:.15s;
+      text-align:center;
+    }
+    .dropzone.is-dragover{
+      border-color:#000;
+      box-shadow:0 10px 30px rgba(0,0,0,.08);
+    }
+
+    .footer{
+      margin-top:28px;
+      display:flex;justify-content:space-between;
+      font-size:12px;color:var(--muted);
+      border-top:1px solid var(--line);
+      padding-top:16px;
+    }
+  </style>
+</head>
+
+<body>
+<div class="wrap">
+
+  <div class="top">
+    <div class="brand">
+      <div class="logo">🌊</div>
+      <div>SurfAnalyze</div>
+    </div>
+    <div class="tag">AI-native surf coaching • MVP</div>
+  </div>
+
+  <div class="hero">
+    <div class="panel">
+      <h1>Загрузи серф-видео — получи разбор.</h1>
+      <div class="sub">Фото или видео → очередь → анализ.</div>
+
+      <div class="bullets">
+        <div class="bullet"><div class="dot">📤</div>Upload</div>
+        <div class="bullet"><div class="dot">🧾</div>Очередь</div>
+        <div class="bullet"><div class="dot">📈</div>Kook-o-Meter</div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <form id="uploadForm" action="/upload" method="post" enctype="multipart/form-data">
+        <input id="fileInput" type="file" name="file" required>
+
+        <div id="dropzone" class="dropzone">
+          <b>Перетащи файл сюда</b><br>
+          <small>или выбери через кнопку выше</small>
         </div>
 
-        {% if result %}
-            <div class="result">{{ result }}</div>
-        {% endif %}
+        <div class="row">
+          <button class="btn primary" type="submit">Upload</button>
+          <a class="btn secondary" href="/kookometer">Open Kook-o-Meter</a>
+        </div>
+      </form>
     </div>
+  </div>
+
+  <div class="footer">
+    <div>SurfAnalyze © 2025</div>
+    <div>Made for Bali surf life 🌴</div>
+  </div>
+</div>
+
+<script>
+(function () {
+  const dz = document.getElementById("dropzone");
+  const input = document.getElementById("fileInput");
+  const form = document.getElementById("uploadForm");
+  if (!dz || !input || !form) return;
+
+  const prevent = e => { e.preventDefault(); e.stopPropagation(); };
+
+  ["dragenter","dragover","dragleave","drop"].forEach(e =>
+    dz.addEventListener(e, prevent)
+  );
+
+  ["dragenter","dragover"].forEach(e =>
+    dz.addEventListener(e, () => dz.classList.add("is-dragover"))
+  );
+
+  ["dragleave","drop"].forEach(e =>
+    dz.addEventListener(e, () => dz.classList.remove("is-dragover"))
+  );
+
+  dz.addEventListener("drop", e => {
+    input.files = e.dataTransfer.files;
+    dz.innerHTML = "Файл получен ✅<br><small>Отправляем…</small>";
+    form.submit(); // 🔥 ВОТ ЭТО И ЕСТЬ ШАГ B
+  });
+})();
+</script>
+
 </body>
 </html>
