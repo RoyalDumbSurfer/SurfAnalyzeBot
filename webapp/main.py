@@ -9,8 +9,13 @@ from fastapi.templating import Jinja2Templates
 
 from jobs.job_manager import JobManager
 from jobs.job_model import JobStatus
+from webapp.routes.download import router as download_router
+
 
 app = FastAPI(title="SurfAnalyze WebApp")
+
+# подключаем /download/{job_id}
+app.include_router(download_router)
 
 BASE_DIR = Path(__file__).resolve().parent
 TEMPLATES_DIR = BASE_DIR / "templates"
@@ -39,15 +44,17 @@ def upload_page(request: Request):
 
 @app.post("/upload", response_class=HTMLResponse)
 async def upload_file(request: Request, file: UploadFile = File(...)):
-    safe_name = file.filename or "upload.bin"
+    # защита от хитрых имен (path traversal)
+    safe_name = Path(file.filename or "upload.bin").name
     out_path = DOWNLOADS_DIR / safe_name
 
     content = await file.read()
     out_path.write_bytes(content)
 
+    # user_id=0 для web (пока без авторизации)
     job = job_manager.create_job(user_id=0, file_path=str(out_path))
 
-    # 🔥 Страница со слежением за статусом
+    # Страница со слежением за статусом + кнопка скачивания
     html = f"""
 <!doctype html>
 <html lang="ru">
@@ -95,6 +102,32 @@ async def upload_file(request: Request, file: UploadFile = File(...)):
       color: #16a34a;
       font-weight: 700;
     }}
+    .btn {{
+      appearance: none;
+      border: 1px solid #e6e8ec;
+      background: #0b0f19;
+      color: #fff;
+      padding: 10px 14px;
+      border-radius: 12px;
+      font-weight: 650;
+      font-size: 14px;
+      cursor: pointer;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      margin-top: 12px;
+    }}
+    .btn.secondary {{
+      background: #f6f7f9;
+      color: #0b0f19;
+    }}
+    .row {{
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-top: 12px;
+    }}
   </style>
 </head>
 <body>
@@ -109,6 +142,10 @@ async def upload_file(request: Request, file: UploadFile = File(...)):
     </div>
 
     <div id="result" class="status" style="display:none;"></div>
+
+    <div class="row">
+      <a class="btn secondary" href="/upload">← Назад к загрузке</a>
+    </div>
   </div>
 
 <script>
@@ -130,7 +167,15 @@ async function poll() {{
     if (job.status === "done") {{
       statusEl.classList.add("done");
       resultEl.style.display = "block";
-      resultEl.innerHTML = `✅ Готово!<br>Результат: <code>${{job.result_path}}</code>`;
+
+      const downloadUrl = `/download/${{jobId}}`;
+
+      resultEl.innerHTML = `
+        ✅ Готово!<br>
+        Результат: <code>${{job.result_path}}</code><br>
+        <a class="btn" href="${{downloadUrl}}">⬇️ Скачать результат</a>
+      `;
+
       clearInterval(timer);
     }}
 

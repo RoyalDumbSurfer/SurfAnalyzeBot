@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>SurfAnalyze — Processed</title>
+
+  <style>
+    :root{
+      --bg:#ffffff;
+      --text:#0b0f19;
+      --muted:#667085;
+      --line:#e6e8ec;
+      --soft:#f6f7f9;
+      --shadow: 0 8px 30px rgba(16, 24, 40, 0.08);
+      --radius: 18px;
+      --ok:#16a34a;
+    }
+
+    *{box-sizing:border-box}
+    body{
+      margin:0;
+      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial;
+      background: var(--soft);
+      color:var(--text);
+    }
+    .wrap{
+      max-width: 980px;
+      margin: 0 auto;
+      padding: 28px 18px 60px;
+    }
+    .panel{
+      max-width: 720px;
+      margin: 0 auto;
+      border:1px solid var(--line);
+      border-radius: var(--radius);
+      background:#fff;
+      box-shadow: var(--shadow);
+      padding: 18px 18px 16px;
+    }
+
+    h1{
+      margin:0 0 10px;
+      font-size:22px;
+      letter-spacing:-.02em;
+      display:flex;
+      align-items:center;
+      gap:10px;
+    }
+
+    .row{
+      margin-top:10px;
+      color:var(--muted);
+      font-size:14px;
+      line-height:1.45;
+    }
+
+    .status{
+      font-weight: 700;
+      color: var(--ok);
+    }
+
+    code{
+      background: var(--soft);
+      border:1px solid var(--line);
+      padding: 2px 6px;
+      border-radius: 8px;
+      font-size: 12px;
+      color: var(--text);
+    }
+
+    .actions{
+      margin-top: 14px;
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+    }
+
+    .btn{
+      appearance:none;
+      border:1px solid var(--line);
+      background: var(--text);
+      color:#fff;
+      padding: 11px 14px;
+      border-radius: 12px;
+      font-weight: 650;
+      font-size: 13px;
+      cursor:pointer;
+      text-decoration:none;
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+    }
+
+    .btn.secondary{
+      background: var(--soft);
+      color: var(--text);
+    }
+  </style>
+</head>
+
+<body>
+  <div class="wrap">
+    <div class="panel">
+      <h1>📥 Файл принят</h1>
+
+      <div class="row">Файл: <code>{{ filename }}</code></div>
+      <div class="row">Job ID: <code>{{ job_id }}</code></div>
+      <div class="row">Статус: <span class="status">{{ status }}</span></div>
+
+      {% if status == "done" and result_path %}
+        <div class="row">✅ Готово!</div>
+        <div class="row">Результат: <code>{{ result_path }}</code></div>
+
+        <div class="actions">
+          <a class="btn" href="/download/{{ job_id }}">⬇️ Скачать результат</a>
+          <a class="btn secondary" href="/upload">← Назад к загрузке</a>
+        </div>
+      {% else %}
+        <div class="row">⏳ В обработке. Обнови страницу через пару секунд.</div>
+        <div class="actions">
+          <a class="btn secondary" href="/upload">← Назад к загрузке</a>
+        </div>
+      {% endif %}
+    </div>
+  </div>
+</body>
+</html>
