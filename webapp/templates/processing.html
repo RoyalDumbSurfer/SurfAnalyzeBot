@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8" />
+    <title>SurfAnalyze — Processing</title>
+    <link rel="stylesheet" href="/static/style.css" />
+</head>
+<body>
+<div class="container">
+    <h1>⏳ Анализируем серфинг</h1>
+
+    <p class="job-id">Job ID: {{ job_id }}</p>
+    <p id="status">Подготовка анализа…</p>
+
+    <progress id="progress" value="20" max="100"></progress>
+
+    <div id="result-text" style="display:none; margin-top:20px;">
+        <p>✅ Анализ завершён</p>
+        <p>Мы подготовили файл с результатом</p>
+    </div>
+
+    <div id="download-area" style="display:none; margin-top:20px;">
+        <a id="download-btn" class="btn" href="#">
+            ⬇ Скачать результат
+        </a>
+    </div>
+
+    <div style="margin-top:30px;">
+        <a href="/upload">← Загрузить ещё видео</a>
+    </div>
+</div>
+
+<script>
+let progress = 20;
+
+function fakeProgress() {
+    if (progress < 90) {
+        progress += Math.random() * 5;
+        document.getElementById("progress").value = progress;
+    }
+}
+
+async function pollStatus() {
+    try {
+        const res = await fetch("/api/jobs/{{ job_id }}");
+        const data = await res.json();
+
+        if (!data.ok) return;
+
+        const job = data.job;
+        document.getElementById("status").innerText = "Статус: " + job.status;
+
+        if (job.status === "done") {
+            document.getElementById("progress").value = 100;
+            document.getElementById("result-text").style.display = "block";
+            document.getElementById("download-area").style.display = "block";
+
+            const link = "/download/{{ job_id }}";
+            document.getElementById("download-btn").href = link;
+
+            setTimeout(() => {
+                window.location.href = link;
+            }, 1500);
+
+            return;
+        }
+
+        if (job.status === "failed") {
+            document.getElementById("status").innerText = "Ошибка анализа";
+            return;
+        }
+
+        fakeProgress();
+        setTimeout(pollStatus, 2000);
+
+    } catch (e) {
+        console.error(e);
+        setTimeout(pollStatus, 3000);
+    }
+}
+
+pollStatus();
+</script>
+</body>
+</html>
