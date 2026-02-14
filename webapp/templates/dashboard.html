@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard{% endblock %}
+
+{% block content %}
+
+<h1 class="text-3xl font-bold mb-8">Ваши анализы</h1>
+
+{% if jobs %}
+<div class="space-y-4">
+    {% for job in jobs %}
+    <div class="bg-gray-900 border border-gray-800 p-6 rounded-xl flex justify-between items-center">
+        <div>
+            <p class="text-sm text-gray-400">ID: {{ job.id }}</p>
+            <p class="text-lg font-semibold">Статус: {{ job.status.value }}</p>
+            <p class="text-xs text-gray-500 mt-1">
+                {{ job.created_at.strftime("%Y-%m-%d %H:%M") }}
+            </p>
+        </div>
+
+        <div class="space-x-3">
+            {% if job.status.value == "done" %}
+                <a href="/result/{{ job.id }}"
+                   class="bg-indigo-600 hover:bg-indigo-700 px-4 py-2 rounded-lg text-sm">
+                   Открыть
+                </a>
+                <a href="/download/{{ job.id }}"
+                   class="bg-gray-700 hover:bg-gray-600 px-4 py-2 rounded-lg text-sm">
+                   Скачать
+                </a>
+            {% elif job.status.value == "processing" %}
+                <span class="text-yellow-400 text-sm">Обработка…</span>
+            {% elif job.status.value == "queued" %}
+                <span class="text-gray-400 text-sm">В очереди</span>
+            {% else %}
+                <span class="text-red-400 text-sm">Ошибка</span>
+            {% endif %}
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% else %}
+<p class="text-gray-400">У вас пока нет анализов.</p>
+{% endif %}
+
+{% endblock %}

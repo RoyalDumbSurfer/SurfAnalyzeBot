@@ -1,12 +1,19 @@
-<!DOCTYPE html>
-<html>
-<head>
-    <title>Processing</title>
-</head>
-<body>
-<h2>Видео анализируется</h2>
-<p>Job ID: {{ job_id }}</p>
-<p id="status">Проверяем статус...</p>
+{% extends "base.html" %}
+
+{% block title %}Processing{% endblock %}
+
+{% block content %}
+
+<h2 class="text-2xl font-semibold mb-6">Видео анализируется</h2>
+
+<div class="bg-gray-900 border border-gray-800 p-8 rounded-xl">
+    <p class="mb-4 text-gray-400">Job ID: {{ job_id }}</p>
+    <p id="status" class="mb-4 text-lg">Проверяем статус...</p>
+
+    <div class="w-full bg-gray-800 rounded-full h-3">
+        <div id="bar" class="bg-indigo-600 h-3 rounded-full w-1/4 transition-all duration-500"></div>
+    </div>
+</div>
 
 <script>
 async function poll() {
@@ -24,18 +31,12 @@ async function poll() {
             return;
         }
 
-        if (status === "failed") {
-            document.getElementById("status").innerText = "Ошибка обработки";
-            return;
-        }
-
         setTimeout(poll, 2000);
     } catch {
         setTimeout(poll, 3000);
     }
 }
-
 poll();
 </script>
-</body>
-</html>
+
+{% endblock %}

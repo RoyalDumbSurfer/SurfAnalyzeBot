@@ -109,3 +109,15 @@ def result_page(request: Request, job_id: str):
             "result": result_data,
         },
     )
+@app.get("/dashboard", response_class=HTMLResponse)
+def dashboard(request: Request):
+    jobs = job_manager.list_jobs()
+    jobs_sorted = sorted(jobs, key=lambda j: j.created_at, reverse=True)
+
+    return templates.TemplateResponse(
+        "dashboard.html",
+        {
+            "request": request,
+            "jobs": jobs_sorted,
+        },
+    )

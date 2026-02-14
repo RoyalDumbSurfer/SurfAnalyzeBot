@@ -1,18 +1,21 @@
-<!DOCTYPE html>
-<html>
-<head>
-    <title>Result</title>
-</head>
-<body>
-<h2>Результат анализа</h2>
+{% extends "base.html" %}
 
-<p><strong>Уровень:</strong> {{ result.level }}</p>
-<p><strong>Фокус роста:</strong> {{ result.focus }}</p>
-<p>{{ result.summary }}</p>
+{% block title %}Result{% endblock %}
 
-<br>
-<a href="/download/{{ job.id }}">⬇ Скачать результат</a>
-<br><br>
-<a href="/">Загрузить ещё видео</a>
-</body>
-</html>
+{% block content %}
+
+<h2 class="text-3xl font-bold mb-8">Результат анализа</h2>
+
+<div class="bg-gray-900 border border-gray-800 p-8 rounded-xl mb-8">
+    <p class="mb-2"><strong>Уровень:</strong> {{ result.level }}</p>
+    <p class="mb-2"><strong>Фокус роста:</strong> {{ result.focus }}</p>
+    <p class="text-gray-400 mt-4">{{ result.summary }}</p>
+</div>
+
+<a href="/download/{{ job.id }}"
+   class="bg-indigo-600 hover:bg-indigo-700 transition
+          px-6 py-3 rounded-lg font-semibold inline-block">
+    ⬇ Скачать результат
+</a>
+
+{% endblock %}

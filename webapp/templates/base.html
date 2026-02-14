@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>{% block title %}SurfAnalyze{% endblock %}</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-950 text-gray-100 min-h-screen">
+
+<nav class="border-b border-gray-800 bg-gray-900">
+    <div class="max-w-6xl mx-auto px-6 py-4 flex justify-between items-center">
+        <div class="text-xl font-semibold tracking-wide">
+            🏄 SurfAnalyze
+        </div>
+        <div class="space-x-6 text-sm text-gray-400">
+            <a href="/" class="hover:text-white">Upload</a>
+            <a href="/dashboard" class="hover:text-white">Dashboard</a>
+        </div>
+    </div>
+</nav>
+
+<main class="max-w-4xl mx-auto px-6 py-12">
+    {% block content %}{% endblock %}
+</main>
+
+</body>
+</html>
