@@ -4,18 +4,25 @@
 
 {% block content %}
 
-<h2 class="text-2xl font-semibold mb-6">Видео анализируется</h2>
+<div class="text-center mb-12">
+    <h2 class="text-3xl font-semibold mb-4">Analyzing Your Ride</h2>
+    <p class="text-gray-400">AI engine processing your wave data</p>
+</div>
 
-<div class="bg-gray-900 border border-gray-800 p-8 rounded-xl">
-    <p class="mb-4 text-gray-400">Job ID: {{ job_id }}</p>
-    <p id="status" class="mb-4 text-lg">Проверяем статус...</p>
+<div class="glass border border-gray-800 p-10 rounded-2xl">
 
-    <div class="w-full bg-gray-800 rounded-full h-3">
-        <div id="bar" class="bg-indigo-600 h-3 rounded-full w-1/4 transition-all duration-500"></div>
+    <p class="mb-6 text-gray-400 text-sm">Job ID: {{ job_id }}</p>
+    <p id="status" class="mb-6 text-lg">Initializing analysis...</p>
+
+    <div class="w-full bg-gray-800 rounded-full h-3 overflow-hidden">
+        <div id="bar" class="h-3 bg-gradient-to-r from-accent to-accent2 w-1/4 transition-all duration-700"></div>
     </div>
+
 </div>
 
 <script>
+let progress = 25;
+
 async function poll() {
     try {
         const res = await fetch("/api/jobs/{{ job_id }}");
@@ -24,9 +31,15 @@ async function poll() {
         if (!data.ok) return;
 
         const status = data.job.status;
-        document.getElementById("status").innerText = "Статус: " + status;
+        document.getElementById("status").innerText = "Status: " + status;
+
+        if (progress < 90) {
+            progress += 5;
+            document.getElementById("bar").style.width = progress + "%";
+        }
 
         if (status === "done") {
+            document.getElementById("bar").style.width = "100%";
             window.location.href = "/result/{{ job_id }}";
             return;
         }
@@ -36,6 +49,7 @@ async function poll() {
         setTimeout(poll, 3000);
     }
 }
+
 poll();
 </script>
 

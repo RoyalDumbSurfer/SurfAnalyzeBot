@@ -1,46 +1,99 @@
 {% extends "base.html" %}
-
-{% block title %}Dashboard{% endblock %}
+{% block title %}Your Sessions – SurfAnalyze{% endblock %}
 
 {% block content %}
 
-<h1 class="text-3xl font-bold mb-8">Ваши анализы</h1>
+<div class="text-center mb-16">
+    <h1 class="text-5xl font-bold mb-6 bg-gradient-to-r from-accent to-accent2 bg-clip-text text-transparent">
+        Your Sessions
+    </h1>
+    <p class="text-gray-400">
+        All uploaded surf analyses
+    </p>
+</div>
 
-{% if jobs %}
-<div class="space-y-4">
-    {% for job in jobs %}
-    <div class="bg-gray-900 border border-gray-800 p-6 rounded-xl flex justify-between items-center">
+{% if jobs and jobs|length > 0 %}
+
+<div class="grid md:grid-cols-2 gap-10">
+
+{% for job in jobs %}
+{% set status = job.status|string %}
+{% set completed = "DONE" in status or "completed" in status %}
+
+{% if completed %}
+<a href="/result/{{ job.id }}" class="block">
+{% endif %}
+
+<div class="glass rounded-2xl p-8 card-hover cursor-pointer">
+
+    <div class="flex justify-between items-center mb-6">
         <div>
-            <p class="text-sm text-gray-400">ID: {{ job.id }}</p>
-            <p class="text-lg font-semibold">Статус: {{ job.status.value }}</p>
-            <p class="text-xs text-gray-500 mt-1">
-                {{ job.created_at.strftime("%Y-%m-%d %H:%M") }}
-            </p>
+            <div class="text-xs text-gray-500 uppercase tracking-wider">
+                Session
+            </div>
+            <div class="text-lg font-semibold text-accent">
+                #{{ loop.index }}
+            </div>
         </div>
 
-        <div class="space-x-3">
-            {% if job.status.value == "done" %}
-                <a href="/result/{{ job.id }}"
-                   class="bg-indigo-600 hover:bg-indigo-700 px-4 py-2 rounded-lg text-sm">
-                   Открыть
-                </a>
-                <a href="/download/{{ job.id }}"
-                   class="bg-gray-700 hover:bg-gray-600 px-4 py-2 rounded-lg text-sm">
-                   Скачать
-                </a>
-            {% elif job.status.value == "processing" %}
-                <span class="text-yellow-400 text-sm">Обработка…</span>
-            {% elif job.status.value == "queued" %}
-                <span class="text-gray-400 text-sm">В очереди</span>
-            {% else %}
-                <span class="text-red-400 text-sm">Ошибка</span>
-            {% endif %}
+        <div class="text-xs text-gray-500 font-mono">
+            {{ job.id[:8] }}
         </div>
     </div>
-    {% endfor %}
+
+    <div class="mb-6">
+        <div class="text-sm text-gray-400 mb-1">
+            File
+        </div>
+        <div class="text-white text-sm truncate">
+            {{ job.original_filename if job.original_filename else "Unknown file" }}
+        </div>
+    </div>
+
+    <div class="mb-4">
+        {% if completed %}
+            <span class="text-green-400 font-medium">
+                ✓ Completed
+            </span>
+        {% elif "processing" in status or "queued" in status %}
+            <span class="flex items-center gap-2 text-yellow-400 font-medium">
+                <span class="w-2 h-2 bg-yellow-400 rounded-full animate-pulse"></span>
+                Processing...
+            </span>
+        {% else %}
+            <span class="text-gray-500">
+                {{ status }}
+            </span>
+        {% endif %}
+    </div>
+
+    {% if completed %}
+    <div class="text-sm text-accent opacity-70">
+        Click to view result →
+    </div>
+    {% endif %}
+
 </div>
+
+{% if completed %}
+</a>
+{% endif %}
+
+{% endfor %}
+
+</div>
+
 {% else %}
-<p class="text-gray-400">У вас пока нет анализов.</p>
+
+<div class="glass rounded-3xl p-16 text-center">
+    <p class="text-gray-400 mb-6">
+        You haven't uploaded any sessions yet.
+    </p>
+    <a href="/" class="glow-btn px-8 py-3 rounded-xl font-semibold text-black">
+        Upload First Wave
+    </a>
+</div>
+
 {% endif %}
 
 {% endblock %}

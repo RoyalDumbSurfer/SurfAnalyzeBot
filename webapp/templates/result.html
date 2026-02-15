@@ -4,18 +4,25 @@
 
 {% block content %}
 
-<h2 class="text-3xl font-bold mb-8">Результат анализа</h2>
-
-<div class="bg-gray-900 border border-gray-800 p-8 rounded-xl mb-8">
-    <p class="mb-2"><strong>Уровень:</strong> {{ result.level }}</p>
-    <p class="mb-2"><strong>Фокус роста:</strong> {{ result.focus }}</p>
-    <p class="text-gray-400 mt-4">{{ result.summary }}</p>
+<div class="text-center mb-12">
+    <h2 class="text-4xl font-bold bg-gradient-to-r from-accent to-accent2 bg-clip-text text-transparent">
+        Analysis Complete
+    </h2>
 </div>
 
-<a href="/download/{{ job.id }}"
-   class="bg-indigo-600 hover:bg-indigo-700 transition
-          px-6 py-3 rounded-lg font-semibold inline-block">
-    ⬇ Скачать результат
-</a>
+<div class="glass border border-gray-800 p-10 rounded-2xl mb-10">
+
+    <p class="mb-4"><strong>Level:</strong> {{ result.level }}</p>
+    <p class="mb-4"><strong>Focus Area:</strong> {{ result.focus }}</p>
+    <p class="text-gray-400 mt-6">{{ result.summary }}</p>
+
+</div>
+
+<div class="text-center">
+    <a href="/download/{{ job.id }}"
+       class="glow-btn px-8 py-4 rounded-xl font-semibold text-black">
+        ⬇ Download Result
+    </a>
+</div>
 
 {% endblock %}
