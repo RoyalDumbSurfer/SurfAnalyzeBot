@@ -21,26 +21,43 @@
     </script>
 
     <style>
+        /* 🌅 Ocean Dawn Background */
         body {
             background:
+                radial-gradient(circle at 50% 95%, rgba(255,140,0,0.08), transparent 45%),
                 radial-gradient(circle at 20% 30%, rgba(0,229,255,0.08), transparent 40%),
                 radial-gradient(circle at 80% 20%, rgba(59,130,246,0.08), transparent 40%),
-                linear-gradient(270deg, #0B0F17, #0D1422, #0B0F17);
-            background-size: 400% 400%;
-            animation: oceanFlow 25s ease infinite;
+                linear-gradient(180deg, #0B0F17 0%, #111827 60%, #1f2937 100%);
+            overflow-x: hidden;
+            position: relative;
         }
 
-        @keyframes oceanFlow {
-            0% { background-position: 0% 50%; }
-            50% { background-position: 100% 50%; }
-            100% { background-position: 0% 50%; }
+        /* 🌊 Moving wave layer */
+        body::before {
+            content: "";
+            position: fixed;
+            bottom: -140px;
+            left: 0;
+            width: 200%;
+            height: 250px;
+            background: radial-gradient(circle at 50% 50%, rgba(0,229,255,0.18), transparent 70%);
+            animation: waveMove 25s linear infinite;
+            opacity: 0.25;
+            pointer-events: none;
         }
 
+        @keyframes waveMove {
+            0% { transform: translateX(0); }
+            100% { transform: translateX(-50%); }
+        }
+
+        /* Glass */
         .glass {
             backdrop-filter: blur(16px);
             background: rgba(255,255,255,0.04);
         }
 
+        /* Glow button */
         .glow-btn {
             background: linear-gradient(135deg, #00E5FF, #3B82F6);
             box-shadow: 0 0 25px rgba(0,229,255,0.3);
@@ -52,16 +69,17 @@
             transform: translateY(-2px);
         }
 
+        /* Logo */
         .wave-logo {
-            width: 42px;
-            height: 42px;
+            width: 44px;
+            height: 44px;
             border-radius: 50%;
             background: radial-gradient(circle at 30% 30%, #00E5FF, #1E3A8A);
             box-shadow: 0 0 20px rgba(0,229,255,0.6);
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 20px;
+            font-size: 22px;
             animation: pulseGlow 3s ease-in-out infinite;
         }
 
@@ -71,6 +89,7 @@
             100% { box-shadow: 0 0 15px rgba(0,229,255,0.4); }
         }
 
+        /* Card hover */
         .card-hover {
             transition: all 0.3s ease;
         }
@@ -103,7 +122,7 @@
     </div>
 </nav>
 
-<main class="max-w-4xl mx-auto px-6 py-16">
+<main class="max-w-4xl mx-auto px-6 py-16 relative z-10">
     {% block content %}{% endblock %}
 </main>
 

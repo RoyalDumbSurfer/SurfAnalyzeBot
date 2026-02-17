@@ -1,0 +1,54 @@
+<div class="grid md:grid-cols-2 gap-10">
+{% for job in jobs %}
+{% set status = job.status|string %}
+{% set completed = "DONE" in status or "completed" in status %}
+
+{% if completed %}
+<a href="/result/{{ job.id }}" class="block">
+{% endif %}
+
+<div class="glass rounded-2xl p-8 card-hover cursor-pointer">
+
+    {% if job.thumbnail %}
+    <img src="{{ job.thumbnail }}" class="rounded-xl mb-6 opacity-80">
+    {% endif %}
+
+    <div class="flex justify-between items-center mb-4">
+        <div>
+            <div class="text-xs text-gray-500 uppercase tracking-wider">
+                Session
+            </div>
+            <div class="text-lg font-semibold text-accent">
+                #{{ loop.index }}
+            </div>
+        </div>
+
+        <div class="text-xs text-gray-500 font-mono">
+            {{ job.id[:8] }}
+        </div>
+    </div>
+
+    <div class="text-sm text-gray-400 mb-1">
+        {{ job.original_filename if job.original_filename else "Unknown file" }}
+    </div>
+
+    <div class="text-xs text-gray-500 mb-4">
+        Uploaded: {{ job.created_at.strftime("%d %b %Y %H:%M") }}
+    </div>
+
+    {% if completed %}
+        <span class="text-green-400 font-medium">✓ Completed</span>
+    {% elif "processing" in status or "queued" in status %}
+        <span class="text-yellow-400 font-medium">Processing...</span>
+    {% else %}
+        <span class="text-gray-500">{{ status }}</span>
+    {% endif %}
+
+</div>
+
+{% if completed %}
+</a>
+{% endif %}
+
+{% endfor %}
+</div>
