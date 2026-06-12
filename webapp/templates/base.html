@@ -2,8 +2,15 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
+
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
     <title>{% block title %}SurfAnalyze{% endblock %}</title>
 
+    <!-- Telegram Mini App -->
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+
+    <!-- Tailwind -->
     <script src="https://cdn.tailwindcss.com"></script>
 
     <script>
@@ -21,7 +28,6 @@
     </script>
 
     <style>
-        /* 🌅 Ocean Dawn Background */
         body {
             background:
                 radial-gradient(circle at 50% 95%, rgba(255,140,0,0.08), transparent 45%),
@@ -32,7 +38,6 @@
             position: relative;
         }
 
-        /* 🌊 Moving wave layer */
         body::before {
             content: "";
             position: fixed;
@@ -44,20 +49,25 @@
             animation: waveMove 25s linear infinite;
             opacity: 0.25;
             pointer-events: none;
+            z-index: 0;
         }
 
         @keyframes waveMove {
-            0% { transform: translateX(0); }
-            100% { transform: translateX(-50%); }
+            0% {
+                transform: translateX(0);
+            }
+
+            100% {
+                transform: translateX(-50%);
+            }
         }
 
-        /* Glass */
         .glass {
             backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
             background: rgba(255,255,255,0.04);
         }
 
-        /* Glow button */
         .glow-btn {
             background: linear-gradient(135deg, #00E5FF, #3B82F6);
             box-shadow: 0 0 25px rgba(0,229,255,0.3);
@@ -68,56 +78,24 @@
             box-shadow: 0 0 45px rgba(0,229,255,0.6);
             transform: translateY(-2px);
         }
-
-        /* Logo */
-        .wave-logo {
-            width: 44px;
-            height: 44px;
-            border-radius: 50%;
-            background: radial-gradient(circle at 30% 30%, #00E5FF, #1E3A8A);
-            box-shadow: 0 0 20px rgba(0,229,255,0.6);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 22px;
-            animation: pulseGlow 3s ease-in-out infinite;
-        }
-
-        @keyframes pulseGlow {
-            0% { box-shadow: 0 0 15px rgba(0,229,255,0.4); }
-            50% { box-shadow: 0 0 35px rgba(0,229,255,0.8); }
-            100% { box-shadow: 0 0 15px rgba(0,229,255,0.4); }
-        }
-
-        /* Card hover */
-        .card-hover {
-            transition: all 0.3s ease;
-        }
-
-        .card-hover:hover {
-            transform: translateY(-6px);
-            box-shadow: 0 0 40px rgba(0,229,255,0.15);
-        }
     </style>
 </head>
 
 <body class="text-gray-200 min-h-screen">
 
-<nav class="border-b border-gray-800 bg-black/30 backdrop-blur-md">
+<nav class="border-b border-gray-800 bg-black/30 backdrop-blur-md relative z-20">
     <div class="max-w-6xl mx-auto px-6 py-4 flex justify-between items-center">
-
-        <a href="/" class="flex items-center gap-3 group">
-            <div class="wave-logo group-hover:scale-110 transition">
-                🌊
-            </div>
-            <div class="text-xl font-semibold tracking-wide text-accent group-hover:text-white transition">
-                SurfAnalyze
-            </div>
+        <a href="/" class="text-xl font-semibold text-accent">
+            SurfAnalyze
         </a>
 
         <div class="space-x-6 text-sm text-gray-400">
-            <a href="/" class="hover:text-white">Upload</a>
-            <a href="/dashboard" class="hover:text-white">Your Videos</a>
+            <a href="/" class="hover:text-white">
+                Upload
+            </a>
+            <a href="/dashboard" class="hover:text-white">
+                Your Videos
+            </a>
         </div>
     </div>
 </nav>
@@ -125,6 +103,39 @@
 <main class="max-w-4xl mx-auto px-6 py-16 relative z-10">
     {% block content %}{% endblock %}
 </main>
+
+<script>
+    document.addEventListener("DOMContentLoaded", function () {
+        if (window.Telegram && window.Telegram.WebApp) {
+            const tg = window.Telegram.WebApp;
+
+            tg.ready();
+            tg.expand();
+
+            if (tg.initDataUnsafe && tg.initDataUnsafe.user) {
+                const user = tg.initDataUnsafe.user;
+
+                fetch("/telegram-auth", {
+                    method: "POST",
+                    credentials: "same-origin",
+                    headers: {
+                        "Content-Type": "application/json"
+                    },
+                    body: JSON.stringify({
+                        telegram_id: user.id,
+                        username: user.username || null,
+                        first_name: user.first_name || null,
+                        last_name: user.last_name || null
+                    })
+                }).catch(function (error) {
+                    console.error("Telegram auth failed:", error);
+                });
+            }
+        }
+    });
+</script>
+
+{% block scripts %}{% endblock %}
 
 </body>
 </html>

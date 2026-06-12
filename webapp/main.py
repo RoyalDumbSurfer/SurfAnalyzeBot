@@ -5,19 +5,31 @@ from fastapi.staticfiles import StaticFiles
 from starlette.middleware.sessions import SessionMiddleware
 from pathlib import Path
 import uuid
-import os
 import cv2
+import logging
+
+from pydantic import BaseModel
 
 from jobs.job_manager import JobManager
 from jobs.job_model import JobStatus
 from webapp.routes.download import router as download_router
+
+
+# =========================
+# APP INITIALIZATION
+# =========================
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 app = FastAPI()
 app.include_router(download_router)
 
 app.add_middleware(
     SessionMiddleware,
-    secret_key="super-secret-key-change-later"
+    secret_key="super-secret-key-change-later",
+    same_site="lax",
+    https_only=False,
 )
 
 templates = Jinja2Templates(directory="webapp/templates")
@@ -25,53 +37,110 @@ templates = Jinja2Templates(directory="webapp/templates")
 UPLOAD_DIR = Path("data/uploads")
 UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 
-app.mount("/uploads", StaticFiles(directory="data/uploads"), name="uploads")
+app.mount("/uploads", StaticFiles(directory=str(UPLOAD_DIR)), name="uploads")
 
 job_manager = JobManager()
 
 
-def get_user_id(request: Request) -> int:
-    if "user_id" not in request.session:
-        request.session["user_id"] = str(uuid.uuid4())
-    return 0
+# =========================
+# TELEGRAM AUTH
+# =========================
 
+class TelegramUser(BaseModel):
+    telegram_id: int
+    username: str | None = None
+    first_name: str | None = None
+    last_name: str | None = None
+
+
+@app.post("/telegram-auth")
+async def telegram_auth(request: Request, user: TelegramUser):
+    request.session["telegram_id"] = user.telegram_id
+    request.session["telegram_username"] = user.username
+    request.session["telegram_first_name"] = user.first_name
+    request.session["telegram_last_name"] = user.last_name
+
+    return {"ok": True}
+
+
+def get_user_id(request: Request):
+    """
+    Если пользователь пришёл из Telegram Mini App — берём telegram_id.
+    Если открыт обычный браузер — ставим 0.
+
+    Важно:
+    НЕ использовать строку 'anonymous',
+    потому что job_model пытается привести user_id к int.
+    """
+    return request.session.get("telegram_id", 0)
+
+
+# =========================
+# ROUTES
+# =========================
 
 @app.get("/", response_class=HTMLResponse)
 async def index(request: Request):
-    return templates.TemplateResponse("index.html", {"request": request})
+    return templates.TemplateResponse(
+        "index.html",
+        {"request": request},
+    )
 
 
 @app.post("/upload")
 async def upload_video(request: Request, file: UploadFile = File(...)):
     user_id = get_user_id(request)
 
+    if not file.filename:
+        return HTMLResponse("No file uploaded", status_code=400)
+
     safe_name = Path(file.filename).name
-    filepath = UPLOAD_DIR / f"{uuid.uuid4()}_{safe_name}"
+    unique_name = f"{uuid.uuid4()}_{safe_name}"
+    filepath = UPLOAD_DIR / unique_name
+
+    file_content = await file.read()
+
+    if not file_content:
+        return HTMLResponse("Uploaded file is empty", status_code=400)
 
     with open(filepath, "wb") as f:
-        f.write(await file.read())
+        f.write(file_content)
 
-    # -------- Thumbnail generation --------
+    # =========================
+    # THUMBNAIL GENERATION
+    # =========================
+
     thumbnail_path = None
+    video = None
+
     try:
         video = cv2.VideoCapture(str(filepath))
         success, frame = video.read()
-        if success:
-            thumb_name = filepath.stem + "_thumb.jpg"
+
+        if success and frame is not None:
+            thumb_name = f"{filepath.stem}_thumb.jpg"
             thumb_path = UPLOAD_DIR / thumb_name
             cv2.imwrite(str(thumb_path), frame)
             thumbnail_path = f"/uploads/{thumb_name}"
-    except:
-        pass
-    # --------------------------------------
+
+    except Exception as e:
+        logger.warning(f"Thumbnail generation failed: {e}")
+
+    finally:
+        if video is not None:
+            video.release()
+
+    # =========================
+    # CREATE JOB
+    # =========================
 
     job = job_manager.create_job(
         user_id=user_id,
         file_path=str(filepath),
     )
 
-    # временно динамически добавляем thumbnail
-    job.thumbnail = thumbnail_path
+    if hasattr(job, "thumbnail"):
+        job.thumbnail = thumbnail_path
 
     return RedirectResponse(
         url=f"/processing/{job.id}",
@@ -82,20 +151,29 @@ async def upload_video(request: Request, file: UploadFile = File(...)):
 @app.get("/processing/{job_id}", response_class=HTMLResponse)
 def processing_page(request: Request, job_id: str):
     job = job_manager.get_job(job_id)
+
     if not job:
         return HTMLResponse("Job not found", status_code=404)
 
     return templates.TemplateResponse(
         "processing.html",
-        {"request": request, "job_id": job_id},
+        {
+            "request": request,
+            "job": job,
+            "job_id": job_id,
+        },
     )
 
 
 @app.get("/api/jobs/{job_id}")
 def api_job_status(job_id: str):
     job = job_manager.get_job(job_id)
+
     if not job:
-        return JSONResponse({"ok": False}, status_code=404)
+        return JSONResponse(
+            {"ok": False, "error": "Job not found"},
+            status_code=404,
+        )
 
     return {
         "ok": True,
@@ -103,22 +181,28 @@ def api_job_status(job_id: str):
             "id": job.id,
             "status": job.status.value,
             "result_path": job.result_path,
+            "thumbnail": getattr(job, "thumbnail", None),
         },
     }
+
 
 @app.get("/result/{job_id}", response_class=HTMLResponse)
 def result_page(request: Request, job_id: str):
     job = job_manager.get_job(job_id)
+
     if not job:
         return HTMLResponse("Job not found", status_code=404)
 
     if job.status != JobStatus.DONE:
-        return RedirectResponse(url=f"/processing/{job_id}")
+        return RedirectResponse(
+            url=f"/processing/{job_id}",
+            status_code=303,
+        )
 
     result_data = {
         "level": "Intermediate",
         "focus": "Stance & timing",
-        "summary": "Хороший контроль, но можно улучшить устойчивость в повороте."
+        "summary": "Хороший контроль, но можно улучшить устойчивость в повороте.",
     }
 
     return templates.TemplateResponse(
@@ -133,8 +217,11 @@ def result_page(request: Request, job_id: str):
 
 @app.get("/dashboard", response_class=HTMLResponse)
 def dashboard(request: Request):
+    user_id = get_user_id(request)
+
     jobs = job_manager.list_jobs()
-    jobs_sorted = sorted(jobs, key=lambda j: j.created_at, reverse=True)
+    user_jobs = [j for j in jobs if str(j.user_id) == str(user_id)]
+    jobs_sorted = sorted(user_jobs, key=lambda j: j.created_at, reverse=True)
 
     return templates.TemplateResponse(
         "dashboard.html",
@@ -147,8 +234,11 @@ def dashboard(request: Request):
 
 @app.get("/dashboard-data", response_class=HTMLResponse)
 def dashboard_data(request: Request):
+    user_id = get_user_id(request)
+
     jobs = job_manager.list_jobs()
-    jobs_sorted = sorted(jobs, key=lambda j: j.created_at, reverse=True)
+    user_jobs = [j for j in jobs if str(j.user_id) == str(user_id)]
+    jobs_sorted = sorted(user_jobs, key=lambda j: j.created_at, reverse=True)
 
     return templates.TemplateResponse(
         "dashboard_partial.html",

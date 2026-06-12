@@ -13,6 +13,34 @@ class JobStatus(str, Enum):
     FAILED = "failed"
 
 
+def safe_int(value: Any, default: int = 0) -> int:
+    """
+    Безопасно превращает user_id / chat_id в int.
+
+    Старые jobs могли иметь:
+    - "anonymous"
+    - None
+    - пустую строку
+
+    Раньше из-за этого worker падал.
+    Теперь такие значения превращаются в 0.
+    """
+    try:
+        if value is None:
+            return default
+
+        if value == "":
+            return default
+
+        if value == "anonymous":
+            return default
+
+        return int(value)
+
+    except (ValueError, TypeError):
+        return default
+
+
 @dataclass
 class Job:
     id: str
@@ -22,11 +50,12 @@ class Job:
     created_at: datetime
     updated_at: datetime
 
-    # NEW: чтобы знать, куда отправлять результат
+    # Чтобы знать, куда отправлять результат
     chat_id: Optional[int] = None
 
     result_path: Optional[str] = None
     error_message: Optional[str] = None
+    thumbnail: Optional[str] = None
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -39,18 +68,20 @@ class Job:
             "updated_at": self.updated_at.isoformat(),
             "result_path": self.result_path,
             "error_message": self.error_message,
+            "thumbnail": self.thumbnail,
         }
 
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> "Job":
         return cls(
             id=data["id"],
-            user_id=int(data["user_id"]),
-            chat_id=data.get("chat_id"),
+            user_id=safe_int(data.get("user_id"), default=0),
+            chat_id=safe_int(data.get("chat_id"), default=0) if data.get("chat_id") is not None else None,
             file_path=data["file_path"],
-            status=JobStatus(data["status"]),
+            status=JobStatus(data.get("status", JobStatus.QUEUED.value)),
             created_at=datetime.fromisoformat(data["created_at"]),
             updated_at=datetime.fromisoformat(data["updated_at"]),
             result_path=data.get("result_path"),
             error_message=data.get("error_message"),
+            thumbnail=data.get("thumbnail"),
         )
