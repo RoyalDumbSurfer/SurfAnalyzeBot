@@ -43,3 +43,4 @@ pytest_cache/
 
 # --- Docker / прочее ---
 *.pid
+bot.lock
