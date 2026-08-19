@@ -10,12 +10,30 @@
     </h2>
 </div>
 
+{% if job.extracted_frame_paths %}
 <div class="glass border border-gray-800 p-10 rounded-2xl mb-10">
+    <h3 class="font-semibold text-accent mb-6">Representative Frames</h3>
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+        {% for frame_path in job.extracted_frame_paths %}
+        <img src="{{ frame_path }}" alt="Representative frame {{ loop.index }}" class="rounded-xl w-full">
+        {% endfor %}
+    </div>
+</div>
+{% endif %}
 
-    <p class="mb-4"><strong>Level:</strong> {{ result.level }}</p>
-    <p class="mb-4"><strong>Focus Area:</strong> {{ result.focus }}</p>
-    <p class="text-gray-400 mt-6">{{ result.summary }}</p>
-
+<div class="glass border border-gray-800 p-10 rounded-2xl mb-10">
+    {% if analysis_result %}
+    <div class="space-y-6">
+        <div><h3 class="font-semibold text-accent">Level</h3><p>{{ analysis_result.level }}</p></div>
+        <div><h3 class="font-semibold text-accent">Main Issue</h3><p>{{ analysis_result.main_issue }}</p></div>
+        <div><h3 class="font-semibold text-accent">Why It Matters</h3><p>{{ analysis_result.why_it_matters }}</p></div>
+        <div><h3 class="font-semibold text-accent">How to Fix</h3><p>{{ analysis_result.how_to_fix }}</p></div>
+        <div><h3 class="font-semibold text-accent">Drill</h3><p>{{ analysis_result.drill }}</p></div>
+        <div><h3 class="font-semibold text-accent">Coach Note</h3><p>{{ analysis_result.coach_note }}</p></div>
+    </div>
+    {% else %}
+    <p class="text-gray-400">This completed job does not have a saved analysis result.</p>
+    {% endif %}
 </div>
 
 <div class="text-center">

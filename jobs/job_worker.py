@@ -4,6 +4,8 @@ import time
 from pathlib import Path
 from typing import Optional
 
+import cv2
+
 from .job_manager import JobManager
 from .job_model import JobStatus
 
@@ -12,6 +14,9 @@ from .job_model import JobStatus
 # Пока просто кладём туда тот же файл или фейковый путь.
 RESULTS_DIR = Path("videos_processed")
 RESULTS_DIR.mkdir(exist_ok=True)
+EXTRACTED_FRAMES_DIR = Path("data/extracted_frames")
+EXTRACTED_FRAMES_DIR.mkdir(parents=True, exist_ok=True)
+VIDEO_EXTENSIONS = {".avi", ".mkv", ".mov", ".mp4", ".webm"}
 
 
 def fake_video_analysis(input_path: Path) -> Path:
@@ -34,6 +39,54 @@ def fake_video_analysis(input_path: Path) -> Path:
     return output_path
 
 
+def mock_surf_analysis() -> dict[str, str]:
+    return {
+        "level": "Intermediate",
+        "main_issue": "Your stance becomes too upright during turns.",
+        "why_it_matters": "A lower, balanced stance helps you keep control and generate speed.",
+        "how_to_fix": "Keep your knees bent and your weight centered over the board through each turn.",
+        "drill": "Practice low, controlled bottom turns while focusing on bending at the knees.",
+        "coach_note": "You have good wave awareness—focus on staying compact as you transition.",
+    }
+
+
+def extract_representative_frames(input_path: Path, job_id: str) -> list[str]:
+    video = cv2.VideoCapture(str(input_path))
+    if not video.isOpened():
+        raise RuntimeError("Frame extraction failed: unable to open the uploaded video.")
+
+    try:
+        frame_count = int(video.get(cv2.CAP_PROP_FRAME_COUNT))
+        if frame_count < 1:
+            raise RuntimeError("Frame extraction failed: the video contains no readable frames.")
+
+        job_frames_dir = EXTRACTED_FRAMES_DIR / job_id
+        job_frames_dir.mkdir(parents=True, exist_ok=True)
+        frame_paths = []
+
+        for frame_number in range(5):
+            frame_index = round(frame_number * (frame_count - 1) / 4)
+            video.set(cv2.CAP_PROP_POS_FRAMES, frame_index)
+            success, frame = video.read()
+            if not success or frame is None:
+                raise RuntimeError(
+                    f"Frame extraction failed: unable to read frame {frame_number + 1} of 5."
+                )
+
+            frame_filename = f"frame_{frame_number + 1:02d}.jpg"
+            frame_path = job_frames_dir / frame_filename
+            if not cv2.imwrite(str(frame_path), frame):
+                raise RuntimeError(
+                    f"Frame extraction failed: unable to save frame {frame_number + 1} of 5."
+                )
+
+            frame_paths.append(f"/frames/{job_id}/{frame_filename}")
+
+        return frame_paths
+    finally:
+        video.release()
+
+
 def process_jobs(poll_interval: float = 2.0) -> None:
     """
     Простейший бесконечный цикл обработки задач.
@@ -54,8 +107,17 @@ def process_jobs(poll_interval: float = 2.0) -> None:
 
                 try:
                     input_path = Path(job.file_path)
+                    extracted_frame_paths = None
+                    if input_path.suffix.lower() in VIDEO_EXTENSIONS:
+                        extracted_frame_paths = extract_representative_frames(input_path, job.id)
                     result_path = fake_video_analysis(input_path)
-                    jm.update_job(job.id, status=JobStatus.DONE, result_path=str(result_path))
+                    jm.update_job(
+                        job.id,
+                        status=JobStatus.DONE,
+                        result_path=str(result_path),
+                        analysis_result=mock_surf_analysis(),
+                        extracted_frame_paths=extracted_frame_paths,
+                    )
                     print(f"[Worker] Задача {job.id} завершена. Результат: {result_path}")
                 except Exception as e:
                     jm.update_job(job.id, status=JobStatus.FAILED, error_message=str(e))

@@ -1,9 +1,12 @@
 from __future__ import annotations
 
+from pathlib import Path
+
 from telebot import TeleBot
 from telebot.apihelper import ApiTelegramException
 from telebot.types import Message
 
+from config import settings
 from utils.logger import log_error, log_info, logger_message
 from handlers.base_handler import BaseHandler
 from services.media_service import MediaService
@@ -73,10 +76,17 @@ class MediaHandler(BaseHandler):
                 return
 
             # 3. Создаём задачу в очереди
+            original_filename = None
+            if message.content_type == "video":
+                original_filename = getattr(message.video, "file_name", None)
+            original_filename = original_filename or Path(file_info.file_path).name or Path(filename).name
+            file_path = Path(settings.DOWNLOAD_FOLDER) / filename
+
             job = job_manager.create_job(
                 user_id=message.from_user.id,
                 chat_id=message.chat.id,
-                file_path=str(filename),
+                file_path=str(file_path),
+                original_filename=original_filename,
             )
 
             # 4. Ответ пользователю
