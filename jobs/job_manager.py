@@ -47,7 +47,13 @@ class JobManager:
 
     # --- Публичные методы ---
 
-    def create_job(self, user_id: int, file_path: str, chat_id: int | None = None) -> Job:
+    def create_job(
+        self,
+        user_id: int,
+        file_path: str,
+        chat_id: int | None = None,
+        original_filename: str | None = None,
+    ) -> Job:
         jobs = self._read()
         job_id = str(uuid.uuid4())
 
@@ -56,6 +62,7 @@ class JobManager:
             user_id=user_id,
             chat_id=chat_id,
             file_path=file_path,
+            original_filename=original_filename,
             status=JobStatus.QUEUED,
             created_at=datetime.utcnow(),
             updated_at=datetime.utcnow(),
@@ -85,6 +92,8 @@ class JobManager:
         status: Optional[JobStatus] = None,
         result_path: Optional[str] = None,
         error_message: Optional[str] = None,
+        analysis_result: Optional[dict[str, str]] = None,
+        extracted_frame_paths: Optional[List[str]] = None,
     ) -> Optional[Job]:
         jobs = self._read()
         updated_job: Optional[Job] = None
@@ -97,6 +106,10 @@ class JobManager:
                     job.result_path = result_path
                 if error_message is not None:
                     job.error_message = error_message
+                if analysis_result is not None:
+                    job.analysis_result = analysis_result
+                if extracted_frame_paths is not None:
+                    job.extracted_frame_paths = extracted_frame_paths
                 job.updated_at = datetime.utcnow()
                 jobs[idx] = job
                 updated_job = job

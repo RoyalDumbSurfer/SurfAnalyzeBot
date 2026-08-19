@@ -1,7 +1,7 @@
 <div class="grid md:grid-cols-2 gap-10">
 {% for job in jobs %}
-{% set status = job.status|string %}
-{% set completed = "DONE" in status or "completed" in status %}
+{% set status = job.status.value %}
+{% set completed = status == "done" %}
 
 {% if completed %}
 <a href="/result/{{ job.id }}" class="block">
@@ -29,17 +29,21 @@
     </div>
 
     <div class="text-sm text-gray-400 mb-1">
-        {{ job.original_filename if job.original_filename else "Unknown file" }}
+        {{ job.display_filename }}
     </div>
 
     <div class="text-xs text-gray-500 mb-4">
         Uploaded: {{ job.created_at.strftime("%d %b %Y %H:%M") }}
     </div>
 
-    {% if completed %}
-        <span class="text-green-400 font-medium">✓ Completed</span>
-    {% elif "processing" in status or "queued" in status %}
-        <span class="text-yellow-400 font-medium">Processing...</span>
+    {% if status == "queued" %}
+        <span class="text-yellow-400 font-medium">Queued</span>
+    {% elif status == "processing" %}
+        <span class="text-yellow-400 font-medium">Analyzing</span>
+    {% elif status == "done" %}
+        <span class="text-green-400 font-medium">Analysis Complete</span>
+    {% elif status == "failed" %}
+        <span class="text-red-400 font-medium">Failed</span>
     {% else %}
         <span class="text-gray-500">{{ status }}</span>
     {% endif %}

@@ -36,8 +36,11 @@ templates = Jinja2Templates(directory="webapp/templates")
 
 UPLOAD_DIR = Path("data/uploads")
 UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+EXTRACTED_FRAMES_DIR = Path("data/extracted_frames")
+EXTRACTED_FRAMES_DIR.mkdir(parents=True, exist_ok=True)
 
 app.mount("/uploads", StaticFiles(directory=str(UPLOAD_DIR)), name="uploads")
+app.mount("/frames", StaticFiles(directory=str(EXTRACTED_FRAMES_DIR)), name="frames")
 
 job_manager = JobManager()
 
@@ -137,6 +140,7 @@ async def upload_video(request: Request, file: UploadFile = File(...)):
     job = job_manager.create_job(
         user_id=user_id,
         file_path=str(filepath),
+        original_filename=safe_name,
     )
 
     if hasattr(job, "thumbnail"):
@@ -199,18 +203,12 @@ def result_page(request: Request, job_id: str):
             status_code=303,
         )
 
-    result_data = {
-        "level": "Intermediate",
-        "focus": "Stance & timing",
-        "summary": "Хороший контроль, но можно улучшить устойчивость в повороте.",
-    }
-
     return templates.TemplateResponse(
         "result.html",
         {
             "request": request,
             "job": job,
-            "result": result_data,
+            "analysis_result": job.analysis_result,
         },
     )
 
