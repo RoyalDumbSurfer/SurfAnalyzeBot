@@ -6,6 +6,8 @@ from typing import Optional
 
 import cv2
 
+from services.surf_analysis_service import analyze_surf_frames
+
 from .job_manager import JobManager
 from .job_model import JobStatus
 
@@ -37,17 +39,6 @@ def fake_video_analysis(input_path: Path) -> Path:
     except Exception as e:
         print(f"[Worker] Ошибка при копировании файла: {e}")
     return output_path
-
-
-def mock_surf_analysis() -> dict[str, str]:
-    return {
-        "level": "Intermediate",
-        "main_issue": "Your stance becomes too upright during turns.",
-        "why_it_matters": "A lower, balanced stance helps you keep control and generate speed.",
-        "how_to_fix": "Keep your knees bent and your weight centered over the board through each turn.",
-        "drill": "Practice low, controlled bottom turns while focusing on bending at the knees.",
-        "coach_note": "You have good wave awareness—focus on staying compact as you transition.",
-    }
 
 
 def extract_representative_frames(input_path: Path, job_id: str) -> list[str]:
@@ -110,12 +101,21 @@ def process_jobs(poll_interval: float = 2.0) -> None:
                     extracted_frame_paths = None
                     if input_path.suffix.lower() in VIDEO_EXTENSIONS:
                         extracted_frame_paths = extract_representative_frames(input_path, job.id)
+                    frame_file_paths = [
+                        EXTRACTED_FRAMES_DIR / job.id / Path(frame_path).name
+                        for frame_path in extracted_frame_paths or []
+                    ]
+                    analysis_result = analyze_surf_frames(
+                        frame_file_paths,
+                        original_filename=job.original_filename,
+                        job_id=job.id,
+                    )
                     result_path = fake_video_analysis(input_path)
                     jm.update_job(
                         job.id,
                         status=JobStatus.DONE,
                         result_path=str(result_path),
-                        analysis_result=mock_surf_analysis(),
+                        analysis_result=analysis_result,
                         extracted_frame_paths=extracted_frame_paths,
                     )
                     print(f"[Worker] Задача {job.id} завершена. Результат: {result_path}")
