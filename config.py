@@ -7,6 +7,8 @@ import os
 class Settings(BaseSettings):
     API_TOKEN: str = Field(..., min_length=10, description="Telegram Bot API Token")
     MAX_FILE_SIZE: int = Field(default=50 * 1024 * 1024, description="Maximum file size in bytes")
+    OPENAI_API_KEY: str | None = Field(default=None, repr=False)
+    OPENAI_VISION_MODEL: str = Field(default="gpt-5.6-terra")
 
     PROJECT_DIR: str = Field(
         default_factory=lambda: os.path.dirname(os.path.abspath(__file__)),
