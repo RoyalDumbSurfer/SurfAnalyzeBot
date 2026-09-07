@@ -15,11 +15,70 @@
     <h3 class="font-semibold text-accent mb-6">Representative Frames</h3>
     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
         {% for frame_path in job.extracted_frame_paths %}
-        <img src="{{ frame_path }}" alt="Representative frame {{ loop.index }}" class="rounded-xl w-full">
+        <button
+            type="button"
+            class="frame-thumbnail group text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-accent rounded-xl"
+            data-frame-index="{{ loop.index0 }}"
+            data-frame-src="{{ frame_path }}"
+            data-frame-label="Frame {{ loop.index }}"
+            aria-label="Open Frame {{ loop.index }}"
+        >
+            <img
+                src="{{ frame_path }}"
+                alt="Representative frame {{ loop.index }}"
+                class="rounded-xl w-full aspect-video object-cover border border-gray-700 group-hover:border-accent transition-colors"
+            >
+            <span class="block mt-2 text-sm font-medium text-gray-300">Frame {{ loop.index }}</span>
+        </button>
         {% endfor %}
     </div>
 </div>
 {% endif %}
+
+<div
+    id="frame-viewer"
+    class="fixed inset-0 z-50 flex items-center justify-center bg-black/85 p-4 sm:p-8"
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="frame-viewer-title"
+    hidden
+>
+    <div class="absolute inset-0" data-frame-viewer-backdrop></div>
+    <section class="relative z-10 flex h-full w-full max-w-6xl flex-col rounded-2xl border border-gray-700 bg-deep shadow-2xl">
+        <header class="flex items-center justify-between gap-4 border-b border-gray-800 px-4 py-3 sm:px-6">
+            <p id="frame-viewer-title" class="font-semibold text-accent" aria-live="polite"></p>
+            <button
+                type="button"
+                class="frame-viewer-close min-h-11 min-w-11 rounded-lg border border-gray-700 px-4 text-lg text-white hover:border-accent focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+                data-frame-viewer-close
+                aria-label="Close frame viewer"
+            >
+                <span aria-hidden="true">×</span>
+            </button>
+        </header>
+
+        <div class="flex min-h-0 flex-1 items-center justify-center p-3 sm:p-6" data-frame-viewer-image-area>
+            <img id="frame-viewer-image" class="max-h-full max-w-full rounded-lg object-contain" alt="">
+        </div>
+
+        <footer class="flex items-center justify-between gap-3 border-t border-gray-800 p-4 sm:px-6">
+            <button
+                type="button"
+                class="frame-viewer-navigation min-h-11 rounded-lg border border-gray-700 px-5 font-semibold text-white hover:border-accent disabled:cursor-not-allowed disabled:opacity-40 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+                data-frame-viewer-previous
+            >
+                Previous
+            </button>
+            <button
+                type="button"
+                class="frame-viewer-navigation min-h-11 rounded-lg border border-gray-700 px-5 font-semibold text-white hover:border-accent disabled:cursor-not-allowed disabled:opacity-40 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+                data-frame-viewer-next
+            >
+                Next
+            </button>
+        </footer>
+    </section>
+</div>
 
 <div class="glass border border-gray-800 p-10 rounded-2xl mb-10">
     {% if analysis_result %}
@@ -43,4 +102,124 @@
     </a>
 </div>
 
+{% endblock %}
+
+{% block scripts %}
+<script>
+    (function () {
+        const thumbnailButtons = Array.from(document.querySelectorAll("[data-frame-index]"));
+        const viewer = document.getElementById("frame-viewer");
+
+        if (!viewer || !thumbnailButtons.length) {
+            return;
+        }
+
+        const frames = thumbnailButtons.map(function (button) {
+            return {
+                src: button.dataset.frameSrc,
+                label: button.dataset.frameLabel
+            };
+        });
+        const image = document.getElementById("frame-viewer-image");
+        const title = document.getElementById("frame-viewer-title");
+        const previousButton = viewer.querySelector("[data-frame-viewer-previous]");
+        const nextButton = viewer.querySelector("[data-frame-viewer-next]");
+        const closeButton = viewer.querySelector("[data-frame-viewer-close]");
+        const backdrop = viewer.querySelector("[data-frame-viewer-backdrop]");
+        const imageArea = viewer.querySelector("[data-frame-viewer-image-area]");
+        let activeIndex = 0;
+        let triggerButton = null;
+        let touchStartX = null;
+
+        function renderFrame() {
+            const frame = frames[activeIndex];
+            image.src = frame.src;
+            image.alt = frame.label;
+            title.textContent = frame.label + " / " + frames.length;
+            previousButton.disabled = activeIndex === 0;
+            nextButton.disabled = activeIndex === frames.length - 1;
+        }
+
+        function openFrame(index, trigger) {
+            if (index < 0 || index >= frames.length) {
+                return;
+            }
+
+            activeIndex = index;
+            triggerButton = trigger || thumbnailButtons[index];
+            renderFrame();
+            viewer.hidden = false;
+            document.body.classList.add("overflow-hidden");
+            closeButton.focus();
+        }
+
+        function closeViewer() {
+            if (viewer.hidden) {
+                return;
+            }
+
+            viewer.hidden = true;
+            document.body.classList.remove("overflow-hidden");
+            if (triggerButton) {
+                triggerButton.focus();
+            }
+        }
+
+        function showAdjacentFrame(offset) {
+            openFrame(activeIndex + offset, triggerButton);
+        }
+
+        thumbnailButtons.forEach(function (button, index) {
+            button.addEventListener("click", function () {
+                openFrame(index, button);
+            });
+        });
+
+        previousButton.addEventListener("click", function () {
+            showAdjacentFrame(-1);
+        });
+        nextButton.addEventListener("click", function () {
+            showAdjacentFrame(1);
+        });
+        closeButton.addEventListener("click", closeViewer);
+        backdrop.addEventListener("click", closeViewer);
+
+        document.addEventListener("keydown", function (event) {
+            if (viewer.hidden) {
+                return;
+            }
+
+            if (event.key === "Escape") {
+                closeViewer();
+            } else if (event.key === "ArrowLeft") {
+                showAdjacentFrame(-1);
+            } else if (event.key === "ArrowRight") {
+                showAdjacentFrame(1);
+            }
+        });
+
+        imageArea.addEventListener("touchstart", function (event) {
+            touchStartX = event.changedTouches[0].screenX;
+        }, { passive: true });
+        imageArea.addEventListener("touchend", function (event) {
+            if (touchStartX === null) {
+                return;
+            }
+
+            const distance = event.changedTouches[0].screenX - touchStartX;
+            touchStartX = null;
+            if (Math.abs(distance) < 50) {
+                return;
+            }
+
+            showAdjacentFrame(distance > 0 ? -1 : 1);
+        }, { passive: true });
+
+        window.SurfAnalyzeFrameViewer = {
+            open: function (frameNumber) {
+                openFrame(frameNumber - 1);
+            }
+        };
+    }());
+</script>
 {% endblock %}
