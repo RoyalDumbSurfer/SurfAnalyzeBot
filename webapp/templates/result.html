@@ -37,7 +37,7 @@
 
 <div
     id="frame-viewer"
-    class="fixed inset-0 z-50 flex items-center justify-center bg-black/85 p-4 sm:p-8"
+    class="fixed inset-0 z-50 flex hidden items-center justify-center bg-black/85 p-4 sm:p-8"
     role="dialog"
     aria-modal="true"
     aria-labelledby="frame-viewer-title"
@@ -105,6 +105,12 @@
 {% endblock %}
 
 {% block scripts %}
+<style>
+    #frame-viewer[hidden],
+    #frame-viewer.hidden {
+        display: none !important;
+    }
+</style>
 <script>
     (function () {
         const thumbnailButtons = Array.from(document.querySelectorAll("[data-frame-index]"));
@@ -149,6 +155,7 @@
             triggerButton = trigger || thumbnailButtons[index];
             renderFrame();
             viewer.hidden = false;
+            viewer.classList.remove("hidden");
             document.body.classList.add("overflow-hidden");
             closeButton.focus();
         }
@@ -159,6 +166,7 @@
             }
 
             viewer.hidden = true;
+            viewer.classList.add("hidden");
             document.body.classList.remove("overflow-hidden");
             if (triggerButton) {
                 triggerButton.focus();
@@ -218,7 +226,8 @@
         window.SurfAnalyzeFrameViewer = {
             open: function (frameNumber) {
                 openFrame(frameNumber - 1);
-            }
+            },
+            close: closeViewer
         };
     }());
 </script>
