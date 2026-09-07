@@ -19,6 +19,7 @@ RESULTS_DIR.mkdir(exist_ok=True)
 EXTRACTED_FRAMES_DIR = Path("data/extracted_frames")
 EXTRACTED_FRAMES_DIR.mkdir(parents=True, exist_ok=True)
 VIDEO_EXTENSIONS = {".avi", ".mkv", ".mov", ".mp4", ".webm"}
+DEFAULT_FRAME_SAMPLE_TARGET = 15
 
 
 def fake_video_analysis(input_path: Path) -> Path:
@@ -41,37 +42,49 @@ def fake_video_analysis(input_path: Path) -> Path:
     return output_path
 
 
-def extract_representative_frames(input_path: Path, job_id: str) -> list[str]:
+def representative_frame_indices(frame_count: int, target_count: int = DEFAULT_FRAME_SAMPLE_TARGET) -> list[int]:
+    """Return evenly distributed, chronological frame indices for a video."""
+    sample_count = min(frame_count, target_count)
+    if sample_count < 1:
+        return []
+    if sample_count == 1:
+        return [0]
+
+    return [index * (frame_count - 1) // (sample_count - 1) for index in range(sample_count)]
+
+
+def extract_representative_frames(
+    input_path: Path,
+    job_id: str,
+    target_count: int = DEFAULT_FRAME_SAMPLE_TARGET,
+) -> list[str]:
     video = cv2.VideoCapture(str(input_path))
     if not video.isOpened():
         raise RuntimeError("Frame extraction failed: unable to open the uploaded video.")
 
     try:
-        frame_count = int(video.get(cv2.CAP_PROP_FRAME_COUNT))
-        if frame_count < 1:
-            raise RuntimeError("Frame extraction failed: the video contains no readable frames.")
+        frame_count = max(0, int(video.get(cv2.CAP_PROP_FRAME_COUNT)))
 
         job_frames_dir = EXTRACTED_FRAMES_DIR / job_id
         job_frames_dir.mkdir(parents=True, exist_ok=True)
         frame_paths = []
 
-        for frame_number in range(5):
-            frame_index = round(frame_number * (frame_count - 1) / 4)
+        frame_indices = representative_frame_indices(frame_count, target_count) or [0]
+        for frame_index in frame_indices:
             video.set(cv2.CAP_PROP_POS_FRAMES, frame_index)
             success, frame = video.read()
             if not success or frame is None:
-                raise RuntimeError(
-                    f"Frame extraction failed: unable to read frame {frame_number + 1} of 5."
-                )
+                continue
 
-            frame_filename = f"frame_{frame_number + 1:02d}.jpg"
+            frame_filename = f"frame_{len(frame_paths) + 1:02d}.jpg"
             frame_path = job_frames_dir / frame_filename
             if not cv2.imwrite(str(frame_path), frame):
-                raise RuntimeError(
-                    f"Frame extraction failed: unable to save frame {frame_number + 1} of 5."
-                )
+                continue
 
             frame_paths.append(f"/frames/{job_id}/{frame_filename}")
+
+        if not frame_paths:
+            raise RuntimeError("Frame extraction failed: no usable frames could be extracted.")
 
         return frame_paths
     finally:
