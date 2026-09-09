@@ -7,6 +7,7 @@ from typing import Optional
 import cv2
 
 from services.surf_analysis_service import analyze_surf_frames
+from utils.video_formats import VIDEO_EXTENSIONS
 
 from .job_manager import JobManager
 from .job_model import JobStatus
@@ -18,7 +19,6 @@ RESULTS_DIR = Path("videos_processed")
 RESULTS_DIR.mkdir(exist_ok=True)
 EXTRACTED_FRAMES_DIR = Path("data/extracted_frames")
 EXTRACTED_FRAMES_DIR.mkdir(parents=True, exist_ok=True)
-VIDEO_EXTENSIONS = {".avi", ".mkv", ".mov", ".mp4", ".webm"}
 DEFAULT_FRAME_SAMPLE_TARGET = 15
 
 

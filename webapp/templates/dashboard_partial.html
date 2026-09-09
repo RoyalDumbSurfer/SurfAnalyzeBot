@@ -43,7 +43,8 @@
     {% elif status == "done" %}
         <span class="text-green-400 font-medium">Analysis Complete</span>
     {% elif status == "failed" %}
-        <span class="text-red-400 font-medium">Failed</span>
+        <p class="text-red-300">We couldn't analyze this ride.</p>
+        <a href="/" class="inline-block mt-3 text-accent underline">Try Another Video</a>
     {% else %}
         <span class="text-gray-500">{{ status }}</span>
     {% endif %}

@@ -95,11 +95,10 @@
     {% endif %}
 </div>
 
-<div class="text-center">
-    <a href="/download/{{ job.id }}"
-       class="glow-btn px-8 py-4 rounded-xl font-semibold text-black">
-        ⬇ Download Result
-    </a>
+<div class="flex flex-col sm:flex-row items-center justify-center gap-5">
+    <a href="/" class="glow-btn px-8 py-4 rounded-xl font-semibold text-black">Analyze Another Video</a>
+    <a href="/dashboard" class="text-accent">Your Videos</a>
+    {% if job.result_path %}<a href="/download/{{ job.id }}" class="text-gray-300 underline">Download Result</a>{% endif %}
 </div>
 
 {% endblock %}

@@ -1,56 +1,42 @@
 {% extends "base.html" %}
-
-{% block title %}Processing{% endblock %}
-
+{% block title %}Analyzing Your Ride{% endblock %}
 {% block content %}
-
-<div class="text-center mb-12">
-    <h2 class="text-3xl font-semibold mb-4">Analyzing Your Ride</h2>
-    <p class="text-gray-400">AI engine processing your wave data</p>
+<div class="text-center mb-8">
+    <h1 class="text-3xl font-semibold mb-4">{% if job.status.value == 'failed' %}We couldn't analyze this ride{% else %}Video uploaded successfully{% endif %}</h1>
+    <p class="text-gray-400">{% if job.status.value != 'failed' %}Your analysis is now in progress. Please wait; you don't need to upload again.{% endif %}</p>
 </div>
-
-<div class="glass border border-gray-800 p-10 rounded-2xl">
-
-    <p class="mb-6 text-gray-400 text-sm">Job ID: {{ job_id }}</p>
-    <p id="status" class="mb-6 text-lg">Initializing analysis...</p>
-
-    <div class="w-full bg-gray-800 rounded-full h-3 overflow-hidden">
-        <div id="bar" class="h-3 bg-gradient-to-r from-accent to-accent2 w-1/4 transition-all duration-700"></div>
-    </div>
-
+<div class="glass border border-gray-800 p-6 sm:p-10 rounded-2xl">
+    <p id="status" role="status" class="mb-6 text-lg">{% if job.status.value == 'failed' %}We couldn't finish this analysis. Please try another clear video of one ride.{% else %}Selecting key frames and preparing your AI coaching feedback...{% endif %}</p>
+    <div id="activity" class="h-2 rounded-full bg-accent/50 animate-pulse {% if job.status.value == 'failed' %}hidden{% endif %}" aria-label="Analysis in progress"></div>
+    <a id="retry" href="/" class="inline-block glow-btn rounded-xl px-6 py-3 text-black font-semibold mt-6 {% if job.status.value != 'failed' %}hidden{% endif %}">Try Another Video</a>
+    <a href="/dashboard" class="block text-accent mt-6">Your Videos</a>
 </div>
-
 <script>
-let progress = 25;
-
+let failures = 0;
+function stop(message) {
+    document.getElementById("status").textContent = message;
+    document.getElementById("activity").classList.add("hidden");
+    document.getElementById("retry").classList.remove("hidden");
+}
 async function poll() {
     try {
-        const res = await fetch("/api/jobs/{{ job_id }}");
+        const res = await fetch({{ ('/api/jobs/' ~ job_id) | tojson }});
+        if (res.status === 401) { window.location.href = "/beta"; return; }
+        if (res.status === 404) { stop("This analysis is no longer available. Please try another video."); return; }
+        if (!res.ok) throw new Error("Status unavailable");
         const data = await res.json();
-
-        if (!data.ok) return;
-
-        const status = data.job.status;
-        document.getElementById("status").innerText = "Status: " + status;
-
-        if (progress < 90) {
-            progress += 5;
-            document.getElementById("bar").style.width = progress + "%";
-        }
-
-        if (status === "done") {
-            document.getElementById("bar").style.width = "100%";
-            window.location.href = "/result/{{ job_id }}";
-            return;
-        }
-
+        if (!data.ok) throw new Error("Status unavailable");
+        failures = 0;
+        if (data.job.status === "done") { window.location.href = {{ ('/result/' ~ job_id) | tojson }}; return; }
+        if (data.job.status === "failed") { stop("We couldn't finish this analysis. Please try another clear video of one ride."); return; }
+        document.getElementById("status").textContent = data.job.status === "queued" ? "Your video is in the queue. Analysis will start shortly." : "Analyzing key frames and preparing your AI coaching feedback...";
         setTimeout(poll, 2000);
     } catch {
+        failures += 1;
+        if (failures >= 5) { stop("We can't check the analysis right now. Open Your Videos or refresh this page to check again; your video may still be processing."); return; }
         setTimeout(poll, 3000);
     }
 }
-
-poll();
+{% if job.status.value != 'failed' %}poll();{% endif %}
 </script>
-
 {% endblock %}

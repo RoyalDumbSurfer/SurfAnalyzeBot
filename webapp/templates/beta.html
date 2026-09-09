@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% block title %}SurfAnalyze Private Beta{% endblock %}
+{% block content %}
+<section class="glass border border-gray-800 rounded-3xl p-6 sm:p-10 max-w-lg mx-auto">
+    <h1 class="text-3xl font-bold text-accent mb-4">SurfAnalyze Private Beta</h1>
+    <p class="text-gray-300 mb-2">AI-powered surf coaching is currently available by invitation.</p>
+    <p class="text-gray-400 mb-6">Enter your access code to continue.</p>
+    {% if error %}<p role="alert" class="rounded-xl border border-red-400/40 bg-red-950/30 p-4 text-red-200 mb-5">{{ error }}</p>{% endif %}
+    <form action="/beta" method="post" class="space-y-5">
+        <label for="accessCode" class="block text-sm">Access code</label>
+        <input id="accessCode" name="access_code" type="password" required maxlength="1024" autocomplete="current-password" class="w-full rounded-xl bg-gray-900 border border-gray-600 p-3 focus:outline-none focus:ring-2 focus:ring-accent">
+        <button type="submit" class="glow-btn w-full rounded-xl p-3 font-semibold text-black">Continue</button>
+    </form>
+</section>
+{% endblock %}
