@@ -27,6 +27,8 @@ uploads/
 
 # --- БД и локальные json-хранилища ---
 *.sqlite3
+*.sqlite3-*
+*.db-*
 *.db
 jobs_db.json
 

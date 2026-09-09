@@ -54,6 +54,7 @@
 </div>
 <!-- Upload Form -->
 <form action="/upload" method="post" enctype="multipart/form-data" id="uploadForm" novalidate>
+    <input type="hidden" name="csrf" value="{{ csrf }}">
 
     <div id="dropZone" role="button" tabindex="0" aria-label="Choose a surf video"
          class="glass border-2 border-dashed border-gray-700

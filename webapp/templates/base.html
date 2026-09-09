@@ -89,13 +89,19 @@
             SurfAnalyze
         </a>
 
-        <div class="space-x-6 text-sm text-gray-400">
-            <a href="/" class="hover:text-white">
-                Upload
-            </a>
-            <a href="/dashboard" class="hover:text-white">
-                Your Videos
-            </a>
+        <div class="flex flex-wrap justify-end items-center gap-3 text-sm text-gray-400">
+            {% if request.state.user %}
+            <span class="text-gray-300 break-all">{{ request.state.user.username }}</span>
+            <a href="/" class="hover:text-white">Upload</a>
+            <a href="/dashboard" class="hover:text-white">Your Videos</a>
+            <form action="/logout" method="post">
+                <input type="hidden" name="csrf" value="{{ csrf_token(request) }}">
+                <button type="submit" class="hover:text-white">Log out</button>
+            </form>
+            {% else %}
+            <a href="/login" class="hover:text-white">Log in</a>
+            <a href="/register" class="hover:text-white">Join with an invite</a>
+            {% endif %}
         </div>
     </div>
 </nav>
@@ -112,25 +118,6 @@
             tg.ready();
             tg.expand();
 
-            if (tg.initDataUnsafe && tg.initDataUnsafe.user) {
-                const user = tg.initDataUnsafe.user;
-
-                fetch("/telegram-auth", {
-                    method: "POST",
-                    credentials: "same-origin",
-                    headers: {
-                        "Content-Type": "application/json"
-                    },
-                    body: JSON.stringify({
-                        telegram_id: user.id,
-                        username: user.username || null,
-                        first_name: user.first_name || null,
-                        last_name: user.last_name || null
-                    })
-                }).catch(function (error) {
-                    console.error("Telegram auth failed:", error);
-                });
-            }
         }
     });
 </script>

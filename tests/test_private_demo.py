@@ -3,23 +3,8 @@ from pathlib import Path
 import cv2
 import numpy as np
 import pytest
-from fastapi.testclient import TestClient
-
-from jobs.job_manager import JobManager
 from jobs.job_model import JobStatus
 from webapp import main
-
-
-@pytest.fixture
-def client(monkeypatch, tmp_path):
-    monkeypatch.setattr(main.settings, "PRIVATE_BETA_ACCESS_CODE", None)
-    monkeypatch.setattr(main.settings, "MAX_FILE_SIZE", 50 * 1024 * 1024)
-    monkeypatch.setattr(main, "job_manager", JobManager(tmp_path / "jobs.json"))
-    uploads = tmp_path / "uploads"
-    uploads.mkdir()
-    monkeypatch.setattr(main, "UPLOAD_DIR", uploads)
-    with TestClient(main.app, base_url="https://testserver", follow_redirects=False) as test_client:
-        yield test_client
 
 
 @pytest.fixture
@@ -104,51 +89,8 @@ def test_missing_and_invalid_form(client):
         assert "traceback" not in response.text.lower()
 
 
-@pytest.mark.parametrize("path", ["/", "/upload", "/dashboard", "/dashboard-data", "/result/known", "/processing/known", "/download/known", "/frames/known/frame_01.jpg", "/uploads/known.mp4", "/telegram-auth", "/docs", "/openapi.json"])
-def test_beta_blocks_all_protected_routes(client, monkeypatch, path):
-    monkeypatch.setattr(main.settings, "PRIVATE_BETA_ACCESS_CODE", "test-invitation-only")
-    response = client.post(path) if path in ("/upload", "/telegram-auth") else client.get(path)
-    assert response.status_code == 303
-    assert response.headers["location"] == "/beta"
-    assert client.get("/api/jobs/known").status_code == 401
-
-
-def test_beta_login_persists_and_cookie_is_secure(client, monkeypatch):
-    monkeypatch.setattr(main.settings, "PRIVATE_BETA_ACCESS_CODE", "test-invitation-only")
-    assert "SurfAnalyze Private Beta" in client.get("/beta").text
-    wrong = client.post("/beta", data={"access_code": "wrong"})
-    assert wrong.status_code == 401
-    assert "That access code is not valid." in wrong.text
-    assert client.get("/").status_code == 303
-    correct = client.post("/beta", data={"access_code": "test-invitation-only"})
-    assert correct.status_code == 303
-    cookie = correct.headers["set-cookie"]
-    assert "httponly" in cookie.lower() and "secure" in cookie.lower() and "samesite=lax" in cookie.lower()
-    assert "test-invitation-only" not in cookie
-    assert client.get("/").status_code == 200
-    assert client.get("/dashboard").status_code == 200
-    assert client.get("/api/jobs/unknown").status_code == 404
-    assert client.get("/").headers["cache-control"] == "no-store"
-    monkeypatch.setattr(main.settings, "PRIVATE_BETA_ACCESS_CODE", "changed-test-code")
-    assert client.get("/").status_code == 303
-
-
-def test_tampered_cookie_and_overlong_code_do_not_grant_access(client, monkeypatch):
-    monkeypatch.setattr(main.settings, "PRIVATE_BETA_ACCESS_CODE", "test-invitation-only")
-    client.cookies.set("surfanalyze_session", "forged")
-    assert client.get("/").status_code == 303
-    response = client.post("/beta", data={"access_code": "x" * 1025})
-    assert response.status_code == 401
-    assert "x" * 100 not in response.text
-
-
-def test_gate_can_be_disabled(client):
-    assert client.get("/").status_code == 200
-    assert client.get("/beta").headers["location"] == "/"
-
-
 def test_result_keeps_fifteen_frames_and_viewer(client):
-    job = main.job_manager.create_job(user_id=0, file_path="ride.mp4")
+    job = main.job_manager.create_job(user_id=1, owner_user_id=1, file_path="ride.mp4")
     main.job_manager.update_job(job.id, status=JobStatus.DONE,
         analysis_result={"level": "Intermediate", "coach_note": "Keep practicing"},
         extracted_frame_paths=[f"/frames/{job.id}/frame_{n:02}.jpg" for n in range(1, 16)],
@@ -163,7 +105,7 @@ def test_result_keeps_fifteen_frames_and_viewer(client):
 
 
 def test_failed_job_has_safe_retry_without_polling(client):
-    job = main.job_manager.create_job(user_id=0, file_path="ride.mp4")
+    job = main.job_manager.create_job(user_id=1, owner_user_id=1, file_path="ride.mp4")
     main.job_manager.update_job(job.id, status=JobStatus.FAILED, error_message="SECRET /server/private Traceback")
     response = client.get(f"/result/{job.id}", follow_redirects=True)
     assert response.status_code == 200
@@ -190,7 +132,7 @@ def test_upload_worker_result_flow(client, video_bytes, monkeypatch, tmp_path):
     monkeypatch.setattr(job_worker, "JobManager", lambda: main.job_manager)
     monkeypatch.setattr(job_worker, "EXTRACTED_FRAMES_DIR", tmp_path / "frames")
     results = tmp_path / "results"
-    results.mkdir()
+    results.mkdir(exist_ok=True)
     monkeypatch.setattr(job_worker, "RESULTS_DIR", results)
     def analyze(frames, **kwargs):
         assert len(frames) == 15
@@ -227,10 +169,11 @@ def test_live_http_server(client):
                     break
                 time.sleep(0.05)
             assert server.started
-            response = httpx.get(f"http://127.0.0.1:{port}/", trust_env=False)
+            headers = {"Cookie": "surfanalyze_account=" + client.cookies.get("surfanalyze_account"), "X-CSRF-Token": client.headers["X-CSRF-Token"]}
+            response = httpx.get(f"http://127.0.0.1:{port}/", headers=headers, trust_env=False)
             assert response.status_code == 200
             assert "What to upload" in response.text
-            response = httpx.post(f"http://127.0.0.1:{port}/upload", files={"file": ("bad.txt", b"bad", "text/plain")}, trust_env=False)
+            response = httpx.post(f"http://127.0.0.1:{port}/upload", files={"file": ("bad.txt", b"bad", "text/plain")}, headers=headers, trust_env=False)
             assert response.status_code == 400
             assert "Choose another video" in response.text
         finally:
@@ -262,7 +205,7 @@ def test_processing_javascript_stops_on_failure(client):
     node = shutil.which("node")
     if not node:
         pytest.skip("Node is required for JavaScript checks")
-    job = main.job_manager.create_job(user_id=0, file_path="ride.mp4")
+    job = main.job_manager.create_job(user_id=1, owner_user_id=1, file_path="ride.mp4")
     scripts = re.findall(r"<script>(.*?)</script>", client.get(f"/processing/{job.id}").text, re.S)
     script = next(script for script in scripts if "async function poll" in script)
     harness = r'''
@@ -303,39 +246,6 @@ async function run(status, httpStatus = 200) {
 def test_exact_size_boundary_is_accepted(client, video_bytes, monkeypatch):
     monkeypatch.setattr(main.settings, "MAX_FILE_SIZE", len(video_bytes))
     assert client.post("/upload", files={"file": ("ride.avi", video_bytes, "video/x-msvideo")}).status_code == 303
-
-
-def test_existing_media_requires_beta_session(client, monkeypatch, tmp_path):
-    monkeypatch.setattr(main.settings, "PRIVATE_BETA_ACCESS_CODE", "test-invitation-only")
-    for mount in main.app.routes:
-        if getattr(mount, "path", None) in ("/frames", "/uploads"):
-            directory = tmp_path / mount.path.strip("/")
-            directory.mkdir(exist_ok=True)
-            (directory / "example.jpg").write_bytes(b"example image")
-            monkeypatch.setattr(mount.app, "all_directories", [str(directory)])
-    for path in ("/frames/example.jpg", "/uploads/example.jpg"):
-        assert client.get(path).status_code == 303
-    client.post("/beta", data={"access_code": "test-invitation-only"})
-    for path in ("/frames/example.jpg", "/uploads/example.jpg"):
-        response = client.get(path)
-        assert response.status_code == 200
-        assert response.content == b"example image"
-        assert response.headers["cache-control"] == "no-store"
-
-
-@pytest.mark.parametrize("secret", ["", "too-short"])
-def test_beta_startup_requires_strong_signing_secret(tmp_path, secret):
-    import os
-    import subprocess
-    import sys
-
-    env = os.environ.copy()
-    env.update(API_TOKEN="test-token-only", PRIVATE_BETA_ACCESS_CODE="test-invitation-only", SESSION_SECRET=secret,
-               PYTHONPATH=str(Path(__file__).resolve().parents[1]))
-    result = subprocess.run([sys.executable, "-c", "import webapp.main"], cwd=tmp_path, env=env, capture_output=True, text=True)
-    assert result.returncode != 0
-    assert "Private beta requires SESSION_SECRET" in result.stderr
-    assert "test-invitation-only" not in result.stderr
 
 
 def test_invalid_filename_never_reaches_filesystem(client):

@@ -10,6 +10,7 @@ class Settings(BaseSettings):
     PRIVATE_BETA_ACCESS_CODE: str | None = Field(default=None, repr=False)
     SESSION_SECRET: str | None = Field(default=None, repr=False)
     SESSION_COOKIE_SECURE: bool = True
+    DATABASE_PATH: str = "data/surfanalyze.sqlite3"
     OPENAI_API_KEY: str | None = Field(default=None, repr=False)
     OPENAI_VISION_MODEL: str = Field(default="gpt-5.6-terra")
 

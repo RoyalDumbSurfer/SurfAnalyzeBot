@@ -1,14 +1,14 @@
 {% extends "base.html" %}
-{% block title %}Your Sessions – SurfAnalyze{% endblock %}
+{% block title %}Your Videos – SurfAnalyze{% endblock %}
 
 {% block content %}
 
 <div class="text-center mb-16">
-    <h1 class="text-5xl font-bold mb-6 bg-gradient-to-r from-accent to-accent2 bg-clip-text text-transparent">
-        Your Sessions
+    <h1 class="text-3xl sm:text-5xl font-bold mb-6 bg-gradient-to-r from-accent to-accent2 bg-clip-text text-transparent">
+        Your Videos
     </h1>
     <p class="text-gray-400">
-        All uploaded surf analyses
+        Your personal surf analyses
     </p>
 </div>
 
@@ -19,10 +19,14 @@
 <script>
 setInterval(() => {
     fetch("/dashboard-data")
-        .then(res => res.text())
+        .then(res => {
+            if (res.redirected) { window.location.href = "/login"; return ""; }
+            if (!res.ok) throw new Error("History unavailable");
+            return res.text();
+        })
         .then(html => {
             document.getElementById("dashboard-container").innerHTML = html;
-        });
+        }).catch(() => {});
 }, 5000);
 </script>
 

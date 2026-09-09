@@ -1,4 +1,6 @@
-﻿# Private Demo Readiness v1
+# Private Demo Readiness v1
+
+> Historical documentation: the shared beta gate and JSON job storage below are superseded by [Accounts & Personal History v1](accounts-v1.md). Use that document for current production setup and migration.
 
 The browser demo uses the existing upload -> JSON job -> worker -> frame extraction -> OpenAI -> result flow. Frame sampling still targets 15 frames, with fewer when only fewer frames are readable. No accounts or job-storage migration are introduced.
 
