@@ -125,8 +125,10 @@ def test_upload_copy_uses_configuration(client, monkeypatch):
     assert "10-30 second" in page
 
 
-def test_upload_worker_result_flow(client, video_bytes, monkeypatch, tmp_path):
+@pytest.mark.parametrize("selected_language", ["ru", "en"])
+def test_upload_worker_result_flow(client, video_bytes, monkeypatch, tmp_path, selected_language):
     from jobs import job_worker
+    client.cookies.set("surfanalyze_language", selected_language)
     response = client.post("/upload", files={"file": ("ride.avi", video_bytes, "video/x-msvideo")})
     job = main.job_manager.list_jobs()[0]
     monkeypatch.setattr(job_worker, "JobManager", lambda: main.job_manager)
@@ -135,6 +137,7 @@ def test_upload_worker_result_flow(client, video_bytes, monkeypatch, tmp_path):
     results.mkdir(exist_ok=True)
     monkeypatch.setattr(job_worker, "RESULTS_DIR", results)
     def analyze(frames, **kwargs):
+        assert kwargs["language"] == selected_language
         assert len(frames) == 15
         assert all(path.is_file() for path in frames)
         return {"level": "Intermediate", "coach_note": "Test coaching feedback"}
@@ -169,7 +172,7 @@ def test_live_http_server(client):
                     break
                 time.sleep(0.05)
             assert server.started
-            headers = {"Cookie": "surfanalyze_account=" + client.cookies.get("surfanalyze_account"), "X-CSRF-Token": client.headers["X-CSRF-Token"]}
+            headers = {"Cookie": "surfanalyze_language=en; surfanalyze_account=" + client.cookies.get("surfanalyze_account"), "X-CSRF-Token": client.headers["X-CSRF-Token"]}
             response = httpx.get(f"http://127.0.0.1:{port}/", headers=headers, trust_env=False)
             assert response.status_code == 200
             assert "What to upload" in response.text

@@ -27,47 +27,47 @@
 <!-- Hero Text -->
 <div class="text-center mb-10">
     <h1 class="text-3xl sm:text-5xl font-bold mb-6 bg-gradient-to-r from-accent to-accent2 bg-clip-text text-transparent">
-        Improve Your Surf Performance
+        {{ t("Improve Your Surf Performance") }}
     </h1>
     <p class="text-gray-400 text-lg">
-        Upload your wave. Get precision AI feedback.
+        {{ t("Upload your wave. Get precision AI feedback.") }}
     </p>
 </div>
 
 <section class="glass border border-gray-800 rounded-2xl p-6 mb-6">
-    <h2 class="text-xl font-semibold text-accent mb-3">How it works</h2>
+    <h2 class="text-xl font-semibold text-accent mb-3">{{ t("How it works") }}</h2>
     <ol class="grid sm:grid-cols-3 gap-3 text-sm text-gray-300">
-        <li>1. Upload your surf ride</li>
-        <li>2. SurfAnalyze selects key frames</li>
-        <li>3. Get AI coaching feedback</li>
+        <li>{{ t("1. Upload your surf ride") }}</li>
+        <li>{{ t("2. SurfAnalyze selects key frames") }}</li>
+        <li>{{ t("3. Get AI coaching feedback") }}</li>
     </ol>
 </section>
 <section class="mb-6 text-sm text-gray-300 space-y-2">
-    <h2 class="text-xl font-semibold text-accent">What to upload</h2>
-    <p>Upload a surf video containing one clearly visible ride. Aim for a 10-30 second clip with clear, stable footage and a surfer large enough to see.</p>
-    <p>Supported formats: {{ video_types.keys() | join(', ') | upper | replace('.', '') }}. Maximum size: {{ max_size_label }}.</p>
-    <p>SurfAnalyze analyzes surfing technique from visible frames, not your entire surf session.</p>
+    <h2 class="text-xl font-semibold text-accent">{{ t("What to upload") }}</h2>
+    <p>{{ t("Upload a surf video containing one clearly visible ride. Aim for a 10-30 second clip with clear, stable footage and a surfer large enough to see.") }}</p>
+    <p>{{ t("Supported formats:") }} {{ video_types.keys() | join(', ') | upper | replace('.', '') }}. {{ t("Maximum size:") }} {{ max_size_label }}.</p>
+    <p>{{ t("SurfAnalyze analyzes surfing technique from visible frames, not your entire surf session.") }}</p>
 </section>
 <div id="uploadError" role="alert" class="border border-red-400/40 bg-red-950/30 rounded-2xl p-5 mb-6 {% if not error %}hidden{% endif %}">
     <p id="errorMessage" class="text-red-200">{{ error or '' }}</p>
-    <button type="button" id="retryButton" class="mt-3 text-accent underline">Choose another video</button>
+    <button type="button" id="retryButton" class="mt-3 text-accent underline">{{ t("Choose another video") }}</button>
 </div>
 <!-- Upload Form -->
 <form action="/upload" method="post" enctype="multipart/form-data" id="uploadForm" novalidate>
     <input type="hidden" name="csrf" value="{{ csrf }}">
 
-    <div id="dropZone" role="button" tabindex="0" aria-label="Choose a surf video"
+    <div id="dropZone" role="button" tabindex="0" aria-label="{{ t("Choose a surf video") }}"
          class="glass border-2 border-dashed border-gray-700
                 p-6 sm:p-12 rounded-3xl text-center cursor-pointer
                 transition-all duration-300
                 hover:border-accent hover:shadow-[0_0_40px_rgba(0,229,255,0.25)]">
 
         <p class="text-gray-300 text-lg mb-4">
-            Drag & Drop your surf video
+            {{ t("Drag & Drop your surf video") }}
         </p>
 
         <p class="text-sm text-gray-500 mb-6">
-            or click to select a file
+            {{ t("or click to select a file") }}
         </p>
 
         <p id="fileName" class="text-sm text-accent break-all hidden" aria-live="polite"></p>
@@ -78,13 +78,13 @@
     <div class="text-center mt-10">
         <button id="uploadButton" type="submit"
                 class="glow-btn disabled:opacity-50 disabled:cursor-wait px-10 py-4 rounded-xl font-semibold text-black">
-            Analyze My Wave
+            {{ t("Analyze My Wave") }}
         </button>
     </div>
 
 </form>
 
-<p id="uploadStatus" role="status" class="hidden text-center text-accent mt-5 animate-pulse">Uploading your video... Please keep this page open.</p>
+<p id="uploadStatus" role="status" class="hidden text-center text-accent mt-5 animate-pulse">{{ t("Uploading your video... Please keep this page open.") }}</p>
 <script>
 const videoTypes = {{ video_types | tojson }};
 const genericTypes = {{ generic_types | tojson }};
@@ -102,17 +102,17 @@ function showError(message) {
 function validateFile() {
     const file = fileInput.files[0];
     if (!file || fileInput.files.length !== 1) {
-        showError("Please choose one video to upload."); return false;
+        showError({{ t("Please choose one video to upload.") | tojson }}); return false;
     }
     fileName.textContent = file.name + " - " + (file.size < 1024 * 1024 ? (file.size / 1024).toFixed(1) + " KiB" : (file.size / (1024 * 1024)).toFixed(1) + " MiB");
     fileName.classList.remove("hidden");
     const extension = file.name.includes(".") ? "." + file.name.split(".").pop().toLowerCase() : "";
     const mime = (file.type || "").toLowerCase().split(";")[0].trim();
     if (!videoTypes[extension] || !(videoTypes[extension].includes(mime) || genericTypes.includes(mime))) {
-        showError("Unsupported video format. Please choose another video."); return false;
+        showError({{ t("Unsupported video format. Please choose another video.") | tojson }}); return false;
     }
-    if (!file.size) { showError("This video is empty. Please choose another video."); return false; }
-    if (file.size > maxSize) { showError("Video is too large. Maximum size: {{ max_size_label }}."); return false; }
+    if (!file.size) { showError({{ t("This video is empty. Please choose another video.") | tojson }}); return false; }
+    if (file.size > maxSize) { showError({{ t("Video is too large. Maximum size: {size}.", size=max_size_label) | tojson }}); return false; }
     errorCard.classList.add("hidden");
     return true;
 }
@@ -133,11 +133,11 @@ document.getElementById("uploadForm").addEventListener("submit", (e) => {
     if (uploading || !validateFile()) { e.preventDefault(); return; }
     uploading = true;
     submitButton.disabled = true;
-    submitButton.textContent = "Uploading...";
+    submitButton.textContent = {{ t("Uploading...") | tojson }};
     document.getElementById("uploadStatus").classList.remove("hidden");
 });
 window.addEventListener("pageshow", () => {
-    uploading = false; submitButton.disabled = false; submitButton.textContent = "Analyze My Wave";
+    uploading = false; submitButton.disabled = false; submitButton.textContent = {{ t("Analyze My Wave") | tojson }};
     document.getElementById("uploadStatus").classList.add("hidden");
 });
 </script>

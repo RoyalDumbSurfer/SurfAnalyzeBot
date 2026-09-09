@@ -16,7 +16,7 @@
     <div class="flex justify-between items-center mb-4">
         <div>
             <div class="text-xs text-gray-500 uppercase tracking-wider">
-                Session
+                {{ t("Session") }}
             </div>
             <div class="text-lg font-semibold text-accent">
                 #{{ loop.index }}
@@ -33,18 +33,18 @@
     </div>
 
     <div class="text-xs text-gray-500 mb-4">
-        Uploaded: {{ job.created_at.strftime("%d %b %Y %H:%M") }}
+        {{ t("Uploaded:") }} {{ job.created_at.strftime("%d.%m.%Y %H:%M") }}
     </div>
 
     {% if status == "queued" %}
-        <a href="/processing/{{ job.id }}" class="text-yellow-400 font-medium underline">Queued - view progress</a>
+        <a href="/processing/{{ job.id }}" class="text-yellow-400 font-medium underline">{{ t("Queued - view progress") }}</a>
     {% elif status == "processing" %}
-        <a href="/processing/{{ job.id }}" class="text-yellow-400 font-medium underline">Analyzing - view progress</a>
+        <a href="/processing/{{ job.id }}" class="text-yellow-400 font-medium underline">{{ t("Analyzing - view progress") }}</a>
     {% elif status == "done" %}
-        <span class="text-green-400 font-medium">Analysis Complete</span>
+        <span class="text-green-400 font-medium">{{ t("Analysis Complete") }}</span>
     {% elif status == "failed" %}
-        <p class="text-red-300">We couldn't analyze this ride.</p>
-        <a href="/" class="inline-block mt-3 text-accent underline">Try Another Video</a>
+        <p class="text-red-300">{{ t("We couldn't analyze this ride.") }}</p>
+        <a href="/" class="inline-block mt-3 text-accent underline">{{ t("Try Another Video") }}</a>
     {% else %}
         <span class="text-gray-500">{{ status }}</span>
     {% endif %}
@@ -57,9 +57,9 @@
 
 {% else %}
 <div class="glass border border-gray-800 rounded-2xl p-8 text-center md:col-span-2">
-    <h2 class="text-xl text-accent font-semibold mb-3">Your first ride starts here</h2>
-    <p class="text-gray-400 mb-5">Your videos and coaching feedback will appear here after you upload.</p>
-    <a href="/" class="inline-block glow-btn px-6 py-3 rounded-xl text-black font-semibold">Upload Your First Video</a>
+    <h2 class="text-xl text-accent font-semibold mb-3">{{ t("Your first ride starts here") }}</h2>
+    <p class="text-gray-400 mb-5">{{ t("Your videos and coaching feedback will appear here after you upload.") }}</p>
+    <a href="/" class="inline-block glow-btn px-6 py-3 rounded-xl text-black font-semibold">{{ t("Upload Your First Video") }}</a>
 </div>
 {% endfor %}
 </div>

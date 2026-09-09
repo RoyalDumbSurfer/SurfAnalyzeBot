@@ -22,6 +22,7 @@ def analyze_surf_frames(
     *,
     original_filename: str | None = None,
     job_id: str | None = None,
+    language: str | None = None,
 ) -> SurfAnalysisResult:
     """Return a surf analysis while hiding the selected provider from the worker."""
     provider = OpenAISurfAnalysisProvider(
@@ -32,4 +33,5 @@ def analyze_surf_frames(
         frame_paths,
         original_filename=original_filename,
         job_id=job_id,
+        **({"language": language} if language else {}),
     )

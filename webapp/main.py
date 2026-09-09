@@ -9,6 +9,7 @@ import uuid
 import cv2
 import logging
 import sqlite3
+import re
 
 from config import settings
 from utils.video_formats import VIDEO_MIME_TYPES, GENERIC_MIME_TYPES
@@ -19,6 +20,7 @@ from starlette.formparsers import MultiPartException
 from contextlib import asynccontextmanager
 from accounts.store import AccountStore
 from accounts.web import current_user, csrf_token, check_csrf, owned_job
+from webapp.i18n import language, translate, template_translate, SUPPORTED_LANGUAGES
 from webapp.routes.download import private_file
 from fastapi.responses import FileResponse
 
@@ -59,7 +61,7 @@ class UploadBodyLimit:
         self.app = app
 
     async def __call__(self, scope, receive, send):
-        if scope["type"] != "http" or scope["path"] not in {"/upload", "/login", "/register", "/logout"}:
+        if scope["type"] != "http" or scope["path"] not in {"/upload", "/login", "/register", "/logout", "/language"}:
             return await self.app(scope, receive, send)
         limit = settings.MAX_FILE_SIZE + 1024 * 1024 if scope["path"] == "/upload" else 16 * 1024
         received = 0
@@ -82,7 +84,7 @@ app.add_middleware(UploadBodyLimit)
 @app.middleware("http")
 async def account_gate(request: Request, call_next):
     request.state.user = await run_in_threadpool(account_store.session_user, request.session.get("sid"))
-    public = request.url.path in {"/login", "/register", "/beta"}
+    public = request.url.path in {"/login", "/register", "/beta", "/language"}
     if not public and request.state.user is None:
         if request.url.path.startswith("/api/"):
             response = JSONResponse({"ok": False, "error": "Login required"}, status_code=401)
@@ -93,7 +95,7 @@ async def account_gate(request: Request, call_next):
         origin = request.headers.get("origin")
         expected_origin = str(request.base_url).rstrip("/")
         if request.method not in {"GET", "HEAD", "OPTIONS"} and origin and origin != expected_origin:
-            response = HTMLResponse("Please reload the page and try again.", status_code=403)
+            response = HTMLResponse(translate(request, "Please reload the page and try again."), status_code=403)
         else:
             response = await call_next(request)
     response.headers["Cache-Control"] = "no-store"
@@ -116,6 +118,22 @@ app.add_middleware(
 
 templates = Jinja2Templates(directory="webapp/templates")
 templates.env.globals["csrf_token"] = csrf_token
+templates.env.globals.update(t=template_translate, language=language)
+
+
+@app.post("/language")
+async def select_language(request: Request, selected: str = Form(), csrf: str = Form(default=""),
+                          return_to: str = Form(default="/", max_length=200)):
+    check_csrf(request, csrf)
+    if selected not in SUPPORTED_LANGUAGES:
+        raise HTTPException(status_code=400, detail="Unsupported language")
+    # Only known local pages; no user-provided absolute URLs or Referer redirects.
+    if not re.fullmatch(r"/(?:login|register|dashboard|(?:result|processing)/[A-Za-z0-9_-]+)?", return_to):
+        return_to = "/"
+    response = RedirectResponse(return_to, status_code=303)
+    response.set_cookie("surfanalyze_language", selected, max_age=365 * 86400,
+                        httponly=True, secure=settings.SESSION_COOKIE_SECURE, samesite="lax")
+    return response
 
 UPLOAD_DIR = Path("data/uploads")
 UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
@@ -124,7 +142,7 @@ EXTRACTED_FRAMES_DIR.mkdir(parents=True, exist_ok=True)
 
 def auth_page(request, mode, error=None, status_code=200):
     return templates.TemplateResponse("account.html", {
-        "request": request, "mode": mode, "error": error, "csrf": csrf_token(request)
+        "request": request, "mode": mode, "error": translate(request, error) if error else None, "csrf": csrf_token(request)
     }, status_code=status_code)
 
 
@@ -220,7 +238,7 @@ def upload_file(request: Request, filename: str):
 
 def upload_page(request: Request, error: str | None = None, status_code: int = 200):
     return templates.TemplateResponse("index.html", {
-        "request": request, "error": error,
+        "request": request, "error": translate(request, error) if error else None,
         "video_types": VIDEO_MIME_TYPES, "generic_types": GENERIC_MIME_TYPES,
         "max_file_size": settings.MAX_FILE_SIZE, "csrf": csrf_token(request),
         "max_size_label": f"{settings.MAX_FILE_SIZE / (1024 * 1024):g} MiB",
@@ -229,6 +247,8 @@ def upload_page(request: Request, error: str | None = None, status_code: int = 2
 
 @app.exception_handler(HTTPException)
 async def expected_http_error(request: Request, exc: HTTPException):
+    if request.url.path in {"/logout", "/language"} and exc.status_code == 403:
+        return HTMLResponse(translate(request, "Please reload the page and try again."), status_code=403)
     if request.url.path in {"/login", "/register"}:
         return auth_page(request, request.url.path[1:], "Please reload the page and check your details.", exc.status_code)
     if request.url.path == "/upload":
@@ -314,6 +334,7 @@ async def upload_video(request: Request, file: UploadFile | None = File(default=
         job = job_manager.create_job(
             user_id=current_user(request).id, owner_user_id=current_user(request).id,
             file_path=str(filepath), original_filename=safe_name,
+            analysis_language=language(request),
         )
         accepted = True
         return RedirectResponse(url=f"/processing/{job.id}", status_code=303)

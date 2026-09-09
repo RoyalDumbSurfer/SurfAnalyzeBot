@@ -57,6 +57,8 @@ def app_state(monkeypatch, tmp_path, password_hash):
 @pytest.fixture
 def guest(app_state):
     with TestClient(main.app, base_url="https://testserver", follow_redirects=False) as client:
+        # Existing regression assertions exercise the English version explicitly.
+        client.cookies.set("surfanalyze_language", "en")
         main.app.state.results_dir = app_state[1]
         yield client
 

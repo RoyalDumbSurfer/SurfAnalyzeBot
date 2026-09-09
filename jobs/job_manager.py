@@ -35,10 +35,11 @@ class JobManager:
         return Job.from_dict(data)
 
     def create_job(self, user_id: int, file_path: str, chat_id=None, original_filename=None,
-                   *, owner_user_id=None) -> Job:
+                   *, owner_user_id=None, analysis_language=None) -> Job:
         job = Job(id=str(uuid.uuid4()), user_id=user_id, file_path=file_path,
                   status=JobStatus.QUEUED, created_at=datetime.utcnow(), updated_at=datetime.utcnow(),
-                  chat_id=chat_id, original_filename=original_filename, owner_user_id=owner_user_id)
+                  chat_id=chat_id, original_filename=original_filename, owner_user_id=owner_user_id,
+                  analysis_language=analysis_language)
         with self.database.connect(write=True) as db:
             db.execute("INSERT INTO jobs VALUES (?, ?, ?, ?, ?)",
                        (job.id, owner_user_id, job.status.value, job.created_at.isoformat(), json.dumps(job.to_dict())))

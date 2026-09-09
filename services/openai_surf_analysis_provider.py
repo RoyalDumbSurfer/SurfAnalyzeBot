@@ -64,6 +64,7 @@ class OpenAISurfAnalysisProvider:
         *,
         original_filename: str | None = None,
         job_id: str | None = None,
+        language: str | None = None,
     ) -> "SurfAnalysisResult":
         if not self.api_key:
             raise SurfAnalysisProviderError("OpenAI analysis is unavailable: OPENAI_API_KEY is not configured.")
@@ -83,7 +84,10 @@ class OpenAISurfAnalysisProvider:
         try:
             response = client.responses.create(
                 model=self.model,
-                instructions=COACHING_INSTRUCTIONS,
+                instructions=COACHING_INSTRUCTIONS + (
+                    "\nWrite all six result values in " + {"ru": "Russian", "en": "English"}[language]
+                    + ". Keep the JSON field names unchanged." if language in {"ru", "en"} else ""
+                ),
                 input=[{"role": "user", "content": content}],
                 text={
                     "format": {

@@ -1,18 +1,18 @@
 {% extends "base.html" %}
 
-{% block title %}Result{% endblock %}
+{% block title %}{{ t("Result") }}{% endblock %}
 
 {% block content %}
 
 <div class="text-center mb-12">
     <h2 class="text-4xl font-bold bg-gradient-to-r from-accent to-accent2 bg-clip-text text-transparent">
-        Analysis Complete
+        {{ t("Analysis Complete") }}
     </h2>
 </div>
 
 {% if job.extracted_frame_paths %}
 <div class="glass border border-gray-800 p-10 rounded-2xl mb-10">
-    <h3 class="font-semibold text-accent mb-6">Representative Frames</h3>
+    <h3 class="font-semibold text-accent mb-6">{{ t("Representative Frames") }}</h3>
     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
         {% for frame_path in job.extracted_frame_paths %}
         <button
@@ -20,15 +20,15 @@
             class="frame-thumbnail group text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-accent rounded-xl"
             data-frame-index="{{ loop.index0 }}"
             data-frame-src="{{ frame_path }}"
-            data-frame-label="Frame {{ loop.index }}"
-            aria-label="Open Frame {{ loop.index }}"
+            data-frame-label="{{ t("Frame") }} {{ loop.index }}"
+            aria-label="{{ t("Open Frame") }} {{ loop.index }}"
         >
             <img
                 src="{{ frame_path }}"
-                alt="Representative frame {{ loop.index }}"
+                alt="{{ t("Representative frame") }} {{ loop.index }}"
                 class="rounded-xl w-full aspect-video object-cover border border-gray-700 group-hover:border-accent transition-colors"
             >
-            <span class="block mt-2 text-sm font-medium text-gray-300">Frame {{ loop.index }}</span>
+            <span class="block mt-2 text-sm font-medium text-gray-300">{{ t("Frame") }} {{ loop.index }}</span>
         </button>
         {% endfor %}
     </div>
@@ -51,7 +51,7 @@
                 type="button"
                 class="frame-viewer-close min-h-11 min-w-11 rounded-lg border border-gray-700 px-4 text-lg text-white hover:border-accent focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
                 data-frame-viewer-close
-                aria-label="Close frame viewer"
+                aria-label="{{ t("Close frame viewer") }}"
             >
                 <span aria-hidden="true">×</span>
             </button>
@@ -67,14 +67,14 @@
                 class="frame-viewer-navigation min-h-11 rounded-lg border border-gray-700 px-5 font-semibold text-white hover:border-accent disabled:cursor-not-allowed disabled:opacity-40 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
                 data-frame-viewer-previous
             >
-                Previous
+                {{ t("Previous") }}
             </button>
             <button
                 type="button"
                 class="frame-viewer-navigation min-h-11 rounded-lg border border-gray-700 px-5 font-semibold text-white hover:border-accent disabled:cursor-not-allowed disabled:opacity-40 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
                 data-frame-viewer-next
             >
-                Next
+                {{ t("Next") }}
             </button>
         </footer>
     </section>
@@ -83,22 +83,22 @@
 <div class="glass border border-gray-800 p-10 rounded-2xl mb-10">
     {% if analysis_result %}
     <div class="space-y-6">
-        <div><h3 class="font-semibold text-accent">Level</h3><p>{{ analysis_result.level }}</p></div>
-        <div><h3 class="font-semibold text-accent">Main Issue</h3><p>{{ analysis_result.main_issue }}</p></div>
-        <div><h3 class="font-semibold text-accent">Why It Matters</h3><p>{{ analysis_result.why_it_matters }}</p></div>
-        <div><h3 class="font-semibold text-accent">How to Fix</h3><p>{{ analysis_result.how_to_fix }}</p></div>
-        <div><h3 class="font-semibold text-accent">Drill</h3><p>{{ analysis_result.drill }}</p></div>
-        <div><h3 class="font-semibold text-accent">Coach Note</h3><p>{{ analysis_result.coach_note }}</p></div>
+        <div><h3 class="font-semibold text-accent">{{ t("Level") }}</h3><p>{{ analysis_result.level }}</p></div>
+        <div><h3 class="font-semibold text-accent">{{ t("Main Issue") }}</h3><p>{{ analysis_result.main_issue }}</p></div>
+        <div><h3 class="font-semibold text-accent">{{ t("Why It Matters") }}</h3><p>{{ analysis_result.why_it_matters }}</p></div>
+        <div><h3 class="font-semibold text-accent">{{ t("How to Fix") }}</h3><p>{{ analysis_result.how_to_fix }}</p></div>
+        <div><h3 class="font-semibold text-accent">{{ t("Drill") }}</h3><p>{{ analysis_result.drill }}</p></div>
+        <div><h3 class="font-semibold text-accent">{{ t("Coach Note") }}</h3><p>{{ analysis_result.coach_note }}</p></div>
     </div>
     {% else %}
-    <p class="text-gray-400">This completed job does not have a saved analysis result.</p>
+    <p class="text-gray-400">{{ t("This completed job does not have a saved analysis result.") }}</p>
     {% endif %}
 </div>
 
 <div class="flex flex-col sm:flex-row items-center justify-center gap-5">
-    <a href="/" class="glow-btn px-8 py-4 rounded-xl font-semibold text-black">Analyze Another Video</a>
-    <a href="/dashboard" class="text-accent">Your Videos</a>
-    {% if job.result_path %}<a href="/download/{{ job.id }}" class="text-gray-300 underline">Download Result</a>{% endif %}
+    <a href="/" class="glow-btn px-8 py-4 rounded-xl font-semibold text-black">{{ t("Analyze Another Video") }}</a>
+    <a href="/dashboard" class="text-accent">{{ t("Your Videos") }}</a>
+    {% if job.result_path %}<a href="/download/{{ job.id }}" class="text-gray-300 underline">{{ t("Download Result") }}</a>{% endif %}
 </div>
 
 {% endblock %}

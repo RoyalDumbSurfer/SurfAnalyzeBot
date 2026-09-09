@@ -62,6 +62,7 @@ class Job:
     extracted_frame_paths: Optional[List[str]] = None
     # Account identity is separate from legacy/Telegram user_id.
     owner_user_id: Optional[int] = None
+    analysis_language: Optional[str] = None
 
     @property
     def display_filename(self) -> str:
@@ -72,6 +73,7 @@ class Job:
             "id": self.id,
             "user_id": self.user_id,
             "owner_user_id": self.owner_user_id,
+            "analysis_language": self.analysis_language,
             "chat_id": self.chat_id,
             "file_path": self.file_path,
             "original_filename": self.original_filename,
@@ -91,6 +93,7 @@ class Job:
             id=data["id"],
             user_id=safe_int(data.get("user_id"), default=0),
             owner_user_id=data.get("owner_user_id"),
+            analysis_language=data.get("analysis_language"),
             chat_id=safe_int(data.get("chat_id"), default=0) if data.get("chat_id") is not None else None,
             file_path=data["file_path"],
             original_filename=data.get("original_filename"),

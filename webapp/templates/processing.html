@@ -1,15 +1,15 @@
 {% extends "base.html" %}
-{% block title %}Analyzing Your Ride{% endblock %}
+{% block title %}{{ t("Analyzing Your Ride") }}{% endblock %}
 {% block content %}
 <div class="text-center mb-8">
-    <h1 class="text-3xl font-semibold mb-4">{% if job.status.value == 'failed' %}We couldn't analyze this ride{% else %}Video uploaded successfully{% endif %}</h1>
-    <p class="text-gray-400">{% if job.status.value != 'failed' %}Your analysis is now in progress. Please wait; you don't need to upload again.{% endif %}</p>
+    <h1 class="text-3xl font-semibold mb-4">{% if job.status.value == 'failed' %}{{ t("We couldn't analyze this ride") }}{% else %}{{ t("Video uploaded successfully") }}{% endif %}</h1>
+    <p class="text-gray-400">{% if job.status.value != 'failed' %}{{ t("Your analysis is now in progress. Please wait; you don't need to upload again.") }}{% endif %}</p>
 </div>
 <div class="glass border border-gray-800 p-6 sm:p-10 rounded-2xl">
-    <p id="status" role="status" class="mb-6 text-lg">{% if job.status.value == 'failed' %}We couldn't finish this analysis. Please try another clear video of one ride.{% else %}Selecting key frames and preparing your AI coaching feedback...{% endif %}</p>
-    <div id="activity" class="h-2 rounded-full bg-accent/50 animate-pulse {% if job.status.value == 'failed' %}hidden{% endif %}" aria-label="Analysis in progress"></div>
-    <a id="retry" href="/" class="inline-block glow-btn rounded-xl px-6 py-3 text-black font-semibold mt-6 {% if job.status.value != 'failed' %}hidden{% endif %}">Try Another Video</a>
-    <a href="/dashboard" class="block text-accent mt-6">Your Videos</a>
+    <p id="status" role="status" class="mb-6 text-lg">{% if job.status.value == 'failed' %}{{ t("We couldn't finish this analysis. Please try another clear video of one ride.") }}{% else %}{{ t("Selecting key frames and preparing your AI coaching feedback...") }}{% endif %}</p>
+    <div id="activity" class="h-2 rounded-full bg-accent/50 animate-pulse {% if job.status.value == 'failed' %}hidden{% endif %}" aria-label="{{ t("Analysis in progress") }}"></div>
+    <a id="retry" href="/" class="inline-block glow-btn rounded-xl px-6 py-3 text-black font-semibold mt-6 {% if job.status.value != 'failed' %}hidden{% endif %}">{{ t("Try Another Video") }}</a>
+    <a href="/dashboard" class="block text-accent mt-6">{{ t("Your Videos") }}</a>
 </div>
 <script>
 let failures = 0;
@@ -22,18 +22,18 @@ async function poll() {
     try {
         const res = await fetch({{ ('/api/jobs/' ~ job_id) | tojson }});
         if (res.status === 401) { window.location.href = "/beta"; return; }
-        if (res.status === 404) { stop("This analysis is no longer available. Please try another video."); return; }
+        if (res.status === 404) { stop({{ t("This analysis is no longer available. Please try another video.") | tojson }}); return; }
         if (!res.ok) throw new Error("Status unavailable");
         const data = await res.json();
         if (!data.ok) throw new Error("Status unavailable");
         failures = 0;
         if (data.job.status === "done") { window.location.href = {{ ('/result/' ~ job_id) | tojson }}; return; }
-        if (data.job.status === "failed") { stop("We couldn't finish this analysis. Please try another clear video of one ride."); return; }
-        document.getElementById("status").textContent = data.job.status === "queued" ? "Your video is in the queue. Analysis will start shortly." : "Analyzing key frames and preparing your AI coaching feedback...";
+        if (data.job.status === "failed") { stop({{ t("We couldn't finish this analysis. Please try another clear video of one ride.") | tojson }}); return; }
+        document.getElementById("status").textContent = data.job.status === "queued" ? {{ t("Your video is in the queue. Analysis will start shortly.") | tojson }} : {{ t("Analyzing key frames and preparing your AI coaching feedback...") | tojson }};
         setTimeout(poll, 2000);
     } catch {
         failures += 1;
-        if (failures >= 5) { stop("We can't check the analysis right now. Open Your Videos or refresh this page to check again; your video may still be processing."); return; }
+        if (failures >= 5) { stop({{ t("We can't check the analysis right now. Open Your Videos or refresh this page to check again; your video may still be processing.") | tojson }}); return; }
         setTimeout(poll, 3000);
     }
 }

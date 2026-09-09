@@ -1,34 +1,34 @@
 {% extends "base.html" %}
-{% block title %}{{ 'Create your account' if mode == 'register' else 'Log in' }} - SurfAnalyze{% endblock %}
+{% block title %}{{ t("Create your account") if mode == 'register' else t("Log in") }} - SurfAnalyze{% endblock %}
 {% block content %}
 <section class="glass border border-gray-800 rounded-3xl p-6 sm:p-10 max-w-lg mx-auto">
-    <p class="text-sm text-accent mb-3">SurfAnalyze Private Beta</p>
-    <h1 class="text-3xl font-bold mb-4">{{ 'Create your account' if mode == 'register' else 'Welcome back' }}</h1>
-    <p class="text-gray-400 mb-6">{{ 'Join with an invite to keep your rides and coaching feedback in your own account.' if mode == 'register' else 'Log in to see your videos and analyze your next ride.' }}</p>
+    <p class="text-sm text-accent mb-3">{{ t("SurfAnalyze Private Beta") }}</p>
+    <h1 class="text-3xl font-bold mb-4">{{ t("Create your account") if mode == 'register' else t("Welcome back") }}</h1>
+    <p class="text-gray-400 mb-6">{{ t("Join with an invite to keep your rides and coaching feedback in your own account.") if mode == 'register' else t("Log in to see your videos and analyze your next ride.") }}</p>
     {% if error %}<p role="alert" class="rounded-xl border border-red-400/40 bg-red-950/30 p-4 text-red-200 mb-5">{{ error }}</p>{% endif %}
     <form action="/{{ mode }}" method="post" class="space-y-5">
         <input type="hidden" name="csrf" value="{{ csrf }}">
         <div>
-            <label for="username" class="block text-sm mb-2">Username</label>
+            <label for="username" class="block text-sm mb-2">{{ t("Username") }}</label>
             <input id="username" name="username" required minlength="3" maxlength="40" autocomplete="username" autocapitalize="none" spellcheck="false" class="w-full rounded-xl bg-gray-900 border border-gray-600 p-3 focus:ring-2 focus:ring-accent">
-            {% if mode == 'register' %}<p class="text-xs text-gray-400 mt-2">3-40 letters, numbers, dots, hyphens, or underscores.</p>{% endif %}
+            {% if mode == 'register' %}<p class="text-xs text-gray-400 mt-2">{{ t("3-40 letters, numbers, dots, hyphens, or underscores.") }}</p>{% endif %}
         </div>
         <div>
-            <label for="password" class="block text-sm mb-2">Password</label>
+            <label for="password" class="block text-sm mb-2">{{ t("Password") }}</label>
             <input id="password" name="password" type="password" required {% if mode == 'register' %}minlength="15"{% endif %} maxlength="128" autocomplete="{{ 'new-password' if mode == 'register' else 'current-password' }}" class="w-full rounded-xl bg-gray-900 border border-gray-600 p-3 focus:ring-2 focus:ring-accent">
-            {% if mode == 'register' %}<p class="text-xs text-gray-400 mt-2">Use a unique password or passphrase with 15-128 characters.</p>{% endif %}
+            {% if mode == 'register' %}<p class="text-xs text-gray-400 mt-2">{{ t("Use a unique password or passphrase with 15-128 characters.") }}</p>{% endif %}
         </div>
         {% if mode == 'register' %}
         <div>
-            <label for="invite" class="block text-sm mb-2">Invite code</label>
+            <label for="invite" class="block text-sm mb-2">{{ t("Invite code") }}</label>
             <input id="invite" name="invite_code" type="password" required maxlength="256" autocomplete="off" class="w-full rounded-xl bg-gray-900 border border-gray-600 p-3 focus:ring-2 focus:ring-accent">
         </div>
         {% endif %}
-        <button type="submit" class="glow-btn w-full rounded-xl p-3 font-semibold text-black">{{ 'Create Account' if mode == 'register' else 'Log In' }}</button>
+        <button type="submit" class="glow-btn w-full rounded-xl p-3 font-semibold text-black">{{ t("Create Account") if mode == 'register' else t("Log In") }}</button>
     </form>
     <p class="mt-6 text-sm text-gray-400">
-        {% if mode == 'register' %}Already have an account? <a href="/login" class="text-accent">Log in</a>
-        {% else %}Have an invite? <a href="/register" class="text-accent">Create your account</a>{% endif %}
+        {% if mode == 'register' %}{{ t("Already have an account?") }} <a href="/login" class="text-accent">{{ t("Log in") }}</a>
+        {% else %}{{ t("Have an invite?") }} <a href="/register" class="text-accent">{{ t("Create your account") }}</a>{% endif %}
     </p>
 </section>
 {% endblock %}

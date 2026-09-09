@@ -122,6 +122,7 @@ def process_jobs(poll_interval: float = 2.0) -> None:
                         frame_file_paths,
                         original_filename=job.original_filename,
                         job_id=job.id,
+                        **({"language": job.analysis_language} if job.analysis_language else {}),
                     )
                     result_path = fake_video_analysis(input_path)
                     jm.update_job(
