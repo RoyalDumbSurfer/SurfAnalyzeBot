@@ -21,7 +21,10 @@
         {% if mode == 'register' %}
         <div>
             <label for="invite" class="block text-sm mb-2">{{ t("Invite code") }}</label>
-            <input id="invite" name="invite_code" type="password" required maxlength="256" autocomplete="off" class="w-full rounded-xl bg-gray-900 border border-gray-600 p-3 focus:ring-2 focus:ring-accent">
+            {% if request.session.get('registration_invite') %}
+            <p class="text-sm text-accent mb-2">{{ t("Your invite link is applied automatically. Leave this field empty.") }}</p>
+            {% endif %}
+            <input id="invite" name="invite_code" type="password" {% if not request.session.get('registration_invite') %}required{% endif %} maxlength="256" autocomplete="off" class="w-full rounded-xl bg-gray-900 border border-gray-600 p-3 focus:ring-2 focus:ring-accent">
         </div>
         {% endif %}
         <button type="submit" class="glow-btn w-full rounded-xl p-3 font-semibold text-black">{{ t("Create Account") if mode == 'register' else t("Log In") }}</button>

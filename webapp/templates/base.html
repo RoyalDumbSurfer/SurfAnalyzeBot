@@ -115,6 +115,9 @@
 </nav>
 
 <main class="max-w-4xl mx-auto px-6 py-16 relative z-10">
+    {% if request.state.user and request.state.user.role == 'admin' %}
+    {% include "admin_invite.html" %}
+    {% endif %}
     {% block content %}{% endblock %}
 </main>
 

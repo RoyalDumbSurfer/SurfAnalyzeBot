@@ -10,6 +10,7 @@ import cv2
 import logging
 import sqlite3
 import re
+import secrets
 
 from config import settings
 from utils.video_formats import VIDEO_MIME_TYPES, GENERIC_MIME_TYPES
@@ -36,6 +37,20 @@ from webapp.routes.download import router as download_router
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+
+class InviteAccessLogFilter(logging.Filter):
+    """Uvicorn request targets must not record registration bearer tokens."""
+
+    def filter(self, record):
+        if isinstance(record.args, tuple) and len(record.args) == 5:
+            address, method, target, protocol, status = record.args
+            if isinstance(target, str) and target.split("?", 1)[0] == "/register":
+                record.args = (address, method, "/register", protocol, status)
+        return True
+
+
+logging.getLogger("uvicorn.access").addFilter(InviteAccessLogFilter())
+
 job_manager = None
 account_store = None
 
@@ -61,7 +76,7 @@ class UploadBodyLimit:
         self.app = app
 
     async def __call__(self, scope, receive, send):
-        if scope["type"] != "http" or scope["path"] not in {"/upload", "/login", "/register", "/logout", "/language"}:
+        if scope["type"] != "http" or scope["path"] not in {"/upload", "/login", "/register", "/logout", "/language", "/api/invites"}:
             return await self.app(scope, receive, send)
         limit = settings.MAX_FILE_SIZE + 1024 * 1024 if scope["path"] == "/upload" else 16 * 1024
         received = 0
@@ -100,7 +115,7 @@ async def account_gate(request: Request, call_next):
             response = await call_next(request)
     response.headers["Cache-Control"] = "no-store"
     response.headers["X-Content-Type-Options"] = "nosniff"
-    response.headers["Referrer-Policy"] = "same-origin"
+    response.headers["Referrer-Policy"] = "no-referrer" if request.url.path == "/register" else "same-origin"
     return response
 
 
@@ -158,6 +173,14 @@ async def login_page(request: Request):
 
 @app.get("/register", response_class=HTMLResponse)
 async def register_page(request: Request):
+    if "invite" in request.query_params:
+        token = request.query_params.get("invite", "")
+        request.session.pop("registration_invite", None)
+        if 24 <= len(token) <= 256:
+            request.session["registration_invite"] = token
+        # No HTML/third-party scripts see the bearer token in the URL. The
+        # existing signed HttpOnly session keeps it across errors/language changes.
+        return RedirectResponse("/register", status_code=303)
     return auth_page(request, "register")
 
 
@@ -194,7 +217,8 @@ async def register(request: Request, username: str = Form(default="", max_length
     if not await allow_auth_attempt(request, username):
         return auth_page(request, "register", "Too many attempts. Please try again in 15 minutes.", 429)
     try:
-        user = await run_in_threadpool(account_store.register, username, password, invite_code)
+        user = await run_in_threadpool(account_store.register, username, password,
+                                      invite_code or request.session.get("registration_invite", ""))
     except ValueError:
         return auth_page(request, "register", "Unable to register. Check your invite, username, and password requirements.", 400)
     return await establish_session(request, user)
@@ -212,6 +236,20 @@ async def logout(request: Request, csrf: str = Form(default="")):
 def api_me(request: Request):
     user = current_user(request)
     return {"id": user.id, "username": user.username, "role": user.role}
+
+
+@app.post("/api/invites")
+async def create_invite(request: Request, csrf: str = Form(default="")):
+    if current_user(request).role != "admin":
+        raise HTTPException(status_code=403, detail="Forbidden")
+    check_csrf(request, csrf)
+    token = secrets.token_urlsafe(32)
+    try:
+        await run_in_threadpool(account_store.create_invite, token, max_uses=1, label="admin-ui")
+    except sqlite3.Error:
+        # Never return SQL context or the token on a failed write.
+        return JSONResponse({"error": "Invite creation failed"}, status_code=503)
+    return JSONResponse({"url": "https://surfanalyze.com/register?invite=" + token}, status_code=201)
 
 
 @app.get("/frames/{job_id}/{filename}")

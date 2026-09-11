@@ -91,5 +91,12 @@
   "Please choose a valid video to upload.": "Выберите подходящий видеофайл для загрузки.",
   "Please choose a video to upload.": "Выберите видео для загрузки.",
   "We could not save your video. Please try again shortly.": "Не удалось сохранить видео. Попробуйте чуть позже.",
-  "Please reload the page and try again.": "Обновите страницу и попробуйте снова."
+  "Please reload the page and try again.": "Обновите страницу и попробуйте снова.",
+  "Create invite": "Создать инвайт",
+  "Copy link": "Скопировать ссылку",
+  "Single-use registration link": "Ссылка для одной регистрации",
+  "Link copied": "Ссылка скопирована",
+  "Could not create an invite. Please reload and try again.": "Не удалось создать инвайт. Обновите страницу и попробуйте снова.",
+  "Select and copy the link above, then share it privately.": "Выделите и скопируйте ссылку выше, затем отправьте её лично.",
+  "Your invite link is applied automatically. Leave this field empty.": "Инвайт из ссылки применится автоматически. Оставьте это поле пустым."
 }
