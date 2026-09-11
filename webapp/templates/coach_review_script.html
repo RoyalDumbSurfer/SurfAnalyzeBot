@@ -1,0 +1,92 @@
+<script>
+(() => {
+    const seed = JSON.parse(document.getElementById('coach-review-seed').textContent);
+    const fields = Array.from(document.querySelectorAll('[data-coach-field]'));
+    const noteInput = document.getElementById('coach-frame-note');
+    const general = document.getElementById('coach-general-comment');
+    const notes = new Map((seed.review?.frame_notes || []).map(n => [n.frame_index, n.note]));
+    let persistedNotes = new Set(notes.keys());
+    const confirmedRemovals = new Set();
+    let revision = seed.review?.revision || 0;
+    let savedStatus = seed.review?.status || 'draft';
+    let activeFrame = 1;
+    let dirty = false;
+    let busy = false;
+    const messages = {
+        saved: {{ t('Review saved') | tojson }}, draft: {{ t('Draft') | tojson }},
+        dirty: {{ t('Unsaved changes') | tojson }}, saving: {{ t('Saving review...') | tojson }},
+        error: {{ t('Could not save. Your edits are still here. Check field lengths and try again.') | tojson }},
+        conflict: {{ t('This review or frame sequence changed. Copy your edits before reloading.') | tojson }},
+        confirm: {{ t('Remove the note from this frame?') | tojson }},
+        clear: {{ t('Remove the cleared frame notes?') | tojson }}, frame: {{ t('Frame') | tojson }}
+    };
+    function status(text) {
+        document.querySelectorAll('[data-coach-status]').forEach(el => { el.textContent = text; });
+    }
+    function changed() {
+        dirty = true;
+        document.getElementById('coach-review-state').textContent = messages.dirty;
+        status(messages.dirty);
+    }
+    fields.forEach(el => el.addEventListener('input', changed));
+    general.addEventListener('input', changed);
+    noteInput.addEventListener('input', () => {
+        if (noteInput.value.trim()) notes.set(activeFrame, noteInput.value);
+        else notes.delete(activeFrame);
+        changed();
+    });
+    async function save(state) {
+        if (busy) return;
+        const removed = Array.from(persistedNotes).filter(index => !notes.has(index) && !confirmedRemovals.has(index));
+        if (removed.length && !window.confirm(messages.clear)) return;
+        const data = {
+            revision, status: state,
+            corrections: Object.fromEntries(fields.map(el => [el.dataset.coachField, el.value.trim() ? el.value : null])),
+            general_comment: general.value,
+            frame_notes: Array.from(notes, ([frame_index, note]) => ({frame_index, note})).sort((a,b) => a.frame_index-b.frame_index)
+        };
+        busy = true;
+        document.querySelectorAll('[data-coach-edit]').forEach(el => { el.disabled = true; });
+        status(messages.saving);
+        try {
+            const response = await fetch(seed.endpoint, {method:'POST', credentials:'same-origin',
+                headers: {'Content-Type':'application/json', 'X-CSRF-Token':seed.csrf}, body:JSON.stringify(data)});
+            if (!response.ok) { status(response.status === 409 ? messages.conflict : messages.error); return; }
+            const result = await response.json();
+            revision = result.review.revision;
+            savedStatus = result.review.status;
+            dirty = false;
+            persistedNotes = new Set(notes.keys());
+            confirmedRemovals.clear();
+            document.getElementById('coach-review-state').textContent = messages[savedStatus];
+            status(messages[savedStatus]);
+        } catch (_) { status(messages.error); }
+        finally {
+            busy = false;
+            document.querySelectorAll('[data-coach-edit]').forEach(el => { el.disabled = false; });
+        }
+    }
+    document.getElementById('coach-review-form').addEventListener('submit', event => { event.preventDefault(); save('saved'); });
+    document.getElementById('coach-save-draft').addEventListener('click', () => save('draft'));
+    document.getElementById('coach-frame-save').addEventListener('click', () => save(savedStatus));
+    document.getElementById('coach-frame-remove').addEventListener('click', () => {
+        if (!notes.has(activeFrame) || !window.confirm(messages.confirm)) return;
+        confirmedRemovals.add(activeFrame);
+        notes.delete(activeFrame);
+        noteInput.value = '';
+        changed();
+        save(savedStatus);
+    });
+    window.addEventListener('beforeunload', event => {
+        if (dirty || busy) { event.preventDefault(); event.returnValue = ''; }
+    });
+    window.SurfAnalyzeCoachReview = {
+        frameChanged(index) {
+            activeFrame = index;
+            noteInput.value = notes.get(index) || '';
+            document.getElementById('coach-frame-label').textContent = messages.frame + ' ' + index;
+        }
+    };
+    window.SurfAnalyzeCoachReview.frameChanged(1);
+})();
+</script>

@@ -1,0 +1,28 @@
+<section class="glass border border-gray-700 rounded-2xl p-4 sm:p-6 mb-8 min-w-0" id="coach-review">
+    <h3 class="text-xl font-semibold text-accent">{{ t("Coach Review") }}</h3>
+    <p id="coach-review-state" class="my-3">{{ t('Review saved') if coach_review and coach_review.status == 'saved' else (t('Draft') if coach_review else t('No coach review')) }}</p>
+    <details>
+        <summary class="cursor-pointer rounded-xl border border-gray-600 p-3 text-accent">{{ t("Review AI analysis") }}</summary>
+        <p class="text-sm text-gray-400 my-4">{{ t("Leave a correction blank to keep the original AI text. Frame notes and fields are saved together.") }}</p>
+        <form id="coach-review-form" class="space-y-5">
+            {% set labels = {'level':'Level', 'main_issue':'Main Issue', 'why_it_matters':'Why It Matters', 'how_to_fix':'How to Fix', 'drill':'Drill', 'coach_note':'Coach Note'} %}
+            {% for field in coach_fields %}
+            <div class="min-w-0">
+                <h4 class="font-semibold text-accent">{{ t(labels[field]) }}</h4>
+                <p class="text-sm text-gray-400 mt-2">{{ t("Original AI") }}</p>
+                <p class="whitespace-pre-wrap break-words rounded-xl bg-black/20 p-3 my-2">{{ coach_review.original_analysis[field] if coach_review else analysis_result[field] }}</p>
+                <label for="coach-{{ field }}" class="block text-sm mb-2">{{ t("Coach correction") }}</label>
+                <textarea id="coach-{{ field }}" data-coach-field="{{ field }}" data-coach-edit rows="3" maxlength="4000" class="w-full rounded-xl border border-gray-600 bg-gray-900 p-3 text-base">{{ (coach_review.corrections[field] or '') if coach_review else '' }}</textarea>
+            </div>
+            {% endfor %}
+            <label for="coach-general-comment" class="block">{{ t("General coach comment") }}</label>
+            <textarea id="coach-general-comment" data-coach-edit rows="4" maxlength="8000" class="w-full rounded-xl border border-gray-600 bg-gray-900 p-3 text-base">{{ coach_review.general_comment if coach_review else '' }}</textarea>
+            <div class="sticky bottom-0 flex flex-wrap gap-3 bg-deep p-3 rounded-xl border border-gray-700">
+                <button type="submit" data-coach-edit class="glow-btn rounded-xl px-4 py-3 font-semibold text-black">{{ t("Save Coach Review") }}</button>
+                <button type="button" data-coach-edit id="coach-save-draft" class="rounded-xl border border-gray-600 px-4 py-3">{{ t("Save draft") }}</button>
+            </div>
+            <p data-coach-status role="status" aria-live="polite" class="text-sm"></p>
+        </form>
+    </details>
+</section>
+<script type="application/json" id="coach-review-seed">{{ {'review': coach_review, 'csrf': csrf_token(request), 'endpoint': '/api/coach-reviews/' ~ job.id} | tojson }}</script>

@@ -1,0 +1,10 @@
+<details id="coach-frame-panel" class="border-t border-gray-700 px-4 py-2 max-h-[45vh] overflow-y-auto">
+    <summary class="cursor-pointer py-3 text-accent font-semibold">{{ t("Coach note") }}</summary>
+    <label for="coach-frame-note" id="coach-frame-label" class="block mb-2"></label>
+    <textarea id="coach-frame-note" data-coach-edit rows="3" maxlength="4000" class="w-full rounded-xl bg-gray-900 border border-gray-600 p-3 text-base" placeholder="{{ t('Comment on this exact frame') }}"></textarea>
+    <div class="flex flex-wrap gap-3 py-3">
+        <button id="coach-frame-save" data-coach-edit type="button" class="glow-btn rounded-xl p-3 text-black font-semibold">{{ t("Save frame note") }}</button>
+        <button id="coach-frame-remove" data-coach-edit type="button" class="rounded-xl border border-gray-600 p-3">{{ t("Remove frame note") }}</button>
+    </div>
+    <p data-coach-status role="status" class="text-sm pb-2"></p>
+</details>

@@ -21,6 +21,7 @@ from starlette.formparsers import MultiPartException
 from contextlib import asynccontextmanager
 from accounts.store import AccountStore
 from accounts.web import current_user, csrf_token, check_csrf, owned_job
+from coach.store import CoachStore, ConflictError, FIELDS as COACH_FIELDS, ROLES as COACH_ROLES
 from webapp.i18n import language, translate, template_translate, SUPPORTED_LANGUAGES
 from webapp.routes.download import private_file
 from fastapi.responses import FileResponse
@@ -60,6 +61,10 @@ async def lifespan(app):
     global job_manager, account_store
     job_manager = job_manager or JobManager()
     account_store = account_store or AccountStore(settings.DATABASE_PATH, initialize=False)
+    with account_store.database.connect() as db:
+        version = db.execute("SELECT value FROM metadata WHERE key='coach_schema_version'").fetchone()
+        if not version or version[0] != '1':
+            raise RuntimeError('Run python -m coach.cli migrate before starting the web app.')
     app.state.job_manager = job_manager
     app.state.results_dir = Path("videos_processed")
     yield
@@ -76,9 +81,10 @@ class UploadBodyLimit:
         self.app = app
 
     async def __call__(self, scope, receive, send):
-        if scope["type"] != "http" or scope["path"] not in {"/upload", "/login", "/register", "/logout", "/language", "/api/invites"}:
+        coach_request = scope.get('path', '').startswith('/api/coach-reviews/')
+        if scope["type"] != "http" or (not coach_request and scope["path"] not in {"/upload", "/login", "/register", "/logout", "/language", "/api/invites"}):
             return await self.app(scope, receive, send)
-        limit = settings.MAX_FILE_SIZE + 1024 * 1024 if scope["path"] == "/upload" else 16 * 1024
+        limit = 512 * 1024 if coach_request else (settings.MAX_FILE_SIZE + 1024 * 1024 if scope["path"] == "/upload" else 16 * 1024)
         received = 0
 
         async def limited_receive():
@@ -87,6 +93,8 @@ class UploadBodyLimit:
             received += len(message.get("body", b""))
             # Allow multipart headers; the endpoint enforces the exact file limit.
             if received > limit:
+                if coach_request:
+                    raise HTTPException(status_code=413, detail='Review is too large')
                 # Starlette closes temporary multipart files on this exception.
                 raise MultiPartException("Video is too large.")
             return message
@@ -262,6 +270,46 @@ def frame_file(request: Request, job_id: str, filename: str):
     return FileResponse(path, media_type="image/jpeg")
 
 
+def coach_user(request):
+    user = current_user(request)
+    if user.role not in COACH_ROLES:
+        raise HTTPException(status_code=403, detail='Forbidden')
+    return user
+
+
+def coach_error(error):
+    if isinstance(error, PermissionError):
+        return JSONResponse({'error': 'Forbidden'}, status_code=403)
+    if isinstance(error, LookupError):
+        return JSONResponse({'error': 'Not found'}, status_code=404)
+    if isinstance(error, ConflictError):
+        return JSONResponse({'error': 'Review changed; reload before editing'}, status_code=409)
+    if isinstance(error, ValueError):
+        return JSONResponse({'error': 'Invalid review'}, status_code=400)
+    return JSONResponse({'error': 'Review unavailable'}, status_code=503)
+
+
+@app.get('/api/coach-reviews/{job_id}')
+async def get_coach_review(request: Request, job_id: str):
+    user = coach_user(request)
+    try:
+        return {'review': await run_in_threadpool(CoachStore(settings.DATABASE_PATH).get, job_id, user.id)}
+    except (PermissionError, LookupError, ValueError, sqlite3.Error) as error:
+        return coach_error(error)
+
+
+@app.post('/api/coach-reviews/{job_id}')
+async def save_coach_review(request: Request, job_id: str):
+    user = coach_user(request)
+    check_csrf(request, '')
+    try:
+        data = await request.json()
+        review = await run_in_threadpool(CoachStore(settings.DATABASE_PATH).save, job_id, user.id, data)
+        return {'review': review}
+    except (PermissionError, LookupError, ValueError, ConflictError, sqlite3.Error) as error:
+        return coach_error(error)
+
+
 @app.get("/uploads/{filename}")
 def upload_file(request: Request, filename: str):
     user = current_user(request)
@@ -428,12 +476,18 @@ def result_page(request: Request, job_id: str):
             status_code=303,
         )
 
+    can_review = current_user(request).role in COACH_ROLES and all(
+        isinstance((job.analysis_result or {}).get(k), str) for k in COACH_FIELDS)
+    review = CoachStore(settings.DATABASE_PATH).get(job_id, current_user(request).id) if can_review else None
     return templates.TemplateResponse(
         "result.html",
         {
             "request": request,
             "job": job,
             "analysis_result": job.analysis_result,
+            "can_review": can_review,
+            "coach_review": review,
+            "coach_fields": COACH_FIELDS,
         },
     )
 

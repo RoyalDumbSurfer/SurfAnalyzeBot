@@ -51,6 +51,10 @@ class Database:
             with self.connect(create=True) as db:
                 db.execute("PRAGMA journal_mode=WAL")
                 db.executescript(SCHEMA)
+            # Explicit bootstrap includes the additive coach schema. Existing
+            # production stores use `python -m coach.cli migrate` before deploy.
+            from coach.migration import migrate
+            migrate(self)
         else:
             if not self.path.is_file():
                 raise RuntimeError("Database is missing. Bootstrap and import legacy jobs before starting services.")
