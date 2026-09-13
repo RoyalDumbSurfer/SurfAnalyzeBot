@@ -236,3 +236,39 @@ def test_unknown_migration_version_is_not_overwritten(app_state):
         migrate(database)
     with database.connect() as db:
         assert db.execute("SELECT value FROM metadata WHERE key='coach_schema_version'").fetchone()[0] == 'future'
+
+
+@pytest.mark.parametrize('language,label,count', [('en','Edit Coach Review','Frame notes: 2'), ('ru','Редактировать разбор тренера','Комментариев к кадрам: 2')])
+@pytest.mark.parametrize('comment', ['', '<script>private feedback</script>'])
+def test_saved_summary_without_field_corrections(reviewer, completed, language, label, count, comment):
+    from bs4 import BeautifulSoup
+    before = main.job_manager.get_job(completed.id).to_dict()
+    data = payload(general_comment=comment, frame_notes=[{'frame_index': 8, 'note': 'one'}, {'frame_index': 12, 'note': 'two'}])
+    assert all(value is None for value in data['corrections'].values())
+    assert reviewer.post(endpoint(completed), json=data).status_code == 200
+    reviewer.cookies.set('surfanalyze_language', language)
+    page = BeautifulSoup(reviewer.get('/result/' + completed.id).text, 'html.parser')
+    summary = page.select_one('#coach-review-summary')
+    assert summary is not None and not summary.has_attr('hidden')
+    assert not summary.find_parent('details')
+    assert not summary.select('textarea, form, script')
+    assert page.select_one('#coach-summary-comment-text').get_text() == comment
+    assert page.select_one('#coach-summary-comment').has_attr('hidden') == (not comment)
+    assert page.select_one('#coach-summary-notes').get_text() == count
+    assert page.select_one('#coach-review-edit').get_text() == label
+    assert not page.select_one('#coach-review-editor').has_attr('open')
+    assert main.job_manager.get_job(completed.id).to_dict() == before
+
+
+def test_summary_comment_only_and_draft_visibility(reviewer, completed):
+    from bs4 import BeautifulSoup
+    data = payload(frame_notes=[], general_comment='Comment without field corrections')
+    assert reviewer.post(endpoint(completed), json=data).status_code == 200
+    page = BeautifulSoup(reviewer.get('/result/' + completed.id).text, 'html.parser')
+    assert not page.select_one('#coach-review-summary').has_attr('hidden')
+    assert page.select_one('#coach-summary-comment-text').get_text() == data['general_comment']
+    data.update(revision=1, status='draft')
+    assert reviewer.post(endpoint(completed), json=data).status_code == 200
+    page = BeautifulSoup(reviewer.get('/result/' + completed.id).text, 'html.parser')
+    assert page.select_one('#coach-review-summary').has_attr('hidden')
+    assert page.select_one('#coach-review-state').get_text() == 'Draft'

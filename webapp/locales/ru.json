@@ -119,5 +119,7 @@
   "Could not save. Your edits are still here. Check field lengths and try again.": "Не удалось сохранить. Ваши изменения остались на странице. Проверьте длину полей и попробуйте снова.",
   "This review or frame sequence changed. Copy your edits before reloading.": "Разбор или последовательность кадров изменились. Скопируйте свои изменения перед обновлением страницы.",
   "Remove the note from this frame?": "Удалить комментарий к этому кадру?",
-  "Remove the cleared frame notes?": "Удалить очищенные комментарии к кадрам?"
+  "Remove the cleared frame notes?": "Удалить очищенные комментарии к кадрам?",
+  "Edit Coach Review": "Редактировать разбор тренера",
+  "Frame notes: {count}": "Комментариев к кадрам: {count}"
 }

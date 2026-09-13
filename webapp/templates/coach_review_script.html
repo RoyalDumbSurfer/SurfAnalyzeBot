@@ -15,6 +15,8 @@
     const messages = {
         saved: {{ t('Review saved') | tojson }}, draft: {{ t('Draft') | tojson }},
         dirty: {{ t('Unsaved changes') | tojson }}, saving: {{ t('Saving review...') | tojson }},
+        noteCount: {{ t('Frame notes: {count}') | tojson }},
+        edit: {{ t('Edit Coach Review') | tojson }}, review: {{ t('Review AI analysis') | tojson }},
         error: {{ t('Could not save. Your edits are still here. Check field lengths and try again.') | tojson }},
         conflict: {{ t('This review or frame sequence changed. Copy your edits before reloading.') | tojson }},
         confirm: {{ t('Remove the note from this frame?') | tojson }},
@@ -28,6 +30,14 @@
         document.getElementById('coach-review-state').textContent = messages.dirty;
         status(messages.dirty);
     }
+    function renderSummary(review) {
+        const saved = review.status === 'saved';
+        document.getElementById('coach-review-summary').hidden = !saved;
+        document.getElementById('coach-summary-comment').hidden = !review.general_comment;
+        document.getElementById('coach-summary-comment-text').textContent = review.general_comment;
+        document.getElementById('coach-summary-notes').textContent = messages.noteCount.replace('{count}', review.frame_notes.length);
+        document.getElementById('coach-review-edit').textContent = saved ? messages.edit : messages.review;
+    }
     fields.forEach(el => el.addEventListener('input', changed));
     general.addEventListener('input', changed);
     noteInput.addEventListener('input', () => {
@@ -35,7 +45,7 @@
         else notes.delete(activeFrame);
         changed();
     });
-    async function save(state) {
+    async function save(state, showSummary = false) {
         if (busy) return;
         const removed = Array.from(persistedNotes).filter(index => !notes.has(index) && !confirmedRemovals.has(index));
         if (removed.length && !window.confirm(messages.clear)) return;
@@ -60,13 +70,18 @@
             confirmedRemovals.clear();
             document.getElementById('coach-review-state').textContent = messages[savedStatus];
             status(messages[savedStatus]);
+            renderSummary(result.review);
+            if (showSummary) {
+                document.getElementById('coach-review-editor').open = false;
+                document.getElementById('coach-review').scrollIntoView({block: 'start'});
+            }
         } catch (_) { status(messages.error); }
         finally {
             busy = false;
             document.querySelectorAll('[data-coach-edit]').forEach(el => { el.disabled = false; });
         }
     }
-    document.getElementById('coach-review-form').addEventListener('submit', event => { event.preventDefault(); save('saved'); });
+    document.getElementById('coach-review-form').addEventListener('submit', event => { event.preventDefault(); save('saved', true); });
     document.getElementById('coach-save-draft').addEventListener('click', () => save('draft'));
     document.getElementById('coach-frame-save').addEventListener('click', () => save(savedStatus));
     document.getElementById('coach-frame-remove').addEventListener('click', () => {

@@ -44,8 +44,8 @@
     hidden
 >
     <div class="absolute inset-0" data-frame-viewer-backdrop></div>
-    <section class="relative z-10 flex h-full w-full max-w-6xl flex-col rounded-2xl border border-gray-700 bg-deep shadow-2xl">
-        <header class="flex items-center justify-between gap-4 border-b border-gray-800 px-4 py-3 sm:px-6">
+    <section class="relative z-10 flex h-full min-h-0 w-full max-w-6xl flex-col overflow-hidden rounded-2xl border border-gray-700 bg-deep shadow-2xl">
+        <header class="sticky top-0 z-20 shrink-0 bg-deep flex items-center justify-between gap-4 border-b border-gray-800 px-4 py-3 sm:px-6">
             <p id="frame-viewer-title" class="font-semibold text-accent" aria-live="polite"></p>
             <button
                 type="button"
@@ -62,7 +62,7 @@
         </div>
 
         {% if can_review %}{% include "coach_frame_note.html" %}{% endif %}
-        <footer class="flex items-center justify-between gap-3 border-t border-gray-800 p-4 sm:px-6">
+        <footer class="shrink-0 flex items-center justify-between gap-3 border-t border-gray-800 p-4 sm:px-6">
             <button
                 type="button"
                 class="frame-viewer-navigation min-h-11 rounded-lg border border-gray-700 px-5 font-semibold text-white hover:border-accent disabled:cursor-not-allowed disabled:opacity-40 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
@@ -108,6 +108,28 @@
 
 {% block scripts %}
 <style>
+    html.frame-viewer-open { overflow: hidden; overscroll-behavior: none; }
+    body.frame-viewer-open {
+        position: fixed;
+        top: var(--frame-page-top);
+        left: 0;
+        width: 100%;
+        overflow: hidden;
+    }
+    #frame-viewer {
+        position: fixed;
+        inset: auto;
+        top: var(--frame-viewport-top, 0px);
+        left: var(--frame-viewport-left, 0px);
+        width: var(--frame-viewport-width, 100%);
+        height: 100vh;
+        height: var(--frame-viewport-height, 100dvh);
+        box-sizing: border-box;
+        padding: max(12px, env(safe-area-inset-top)) max(12px, env(safe-area-inset-right)) max(12px, env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left));
+        overscroll-behavior: contain;
+    }
+    #frame-viewer [data-frame-viewer-close] { flex-shrink: 0; min-height: 44px; min-width: 44px; }
+    #frame-viewer #coach-frame-panel { min-height: 0; max-height: 45%; overscroll-behavior: contain; }
     #frame-viewer[hidden],
     #frame-viewer.hidden {
         display: none !important;
@@ -121,6 +143,8 @@
         if (!viewer || !thumbnailButtons.length) {
             return;
         }
+        // Keep the fixed overlay outside the page's stacking/scroll containers.
+        document.body.appendChild(viewer);
 
         const frames = thumbnailButtons.map(function (button) {
             return {
@@ -138,6 +162,22 @@
         let activeIndex = 0;
         let triggerButton = null;
         let touchStartX = null;
+        let pageScrollX = 0;
+        let pageScrollY = 0;
+
+        function sizeToViewport() {
+            if (viewer.hidden) return;
+            const viewport = window.visualViewport;
+            viewer.style.setProperty('--frame-viewport-top', (viewport ? viewport.offsetTop : 0) + 'px');
+            viewer.style.setProperty('--frame-viewport-left', (viewport ? viewport.offsetLeft : 0) + 'px');
+            viewer.style.setProperty('--frame-viewport-width', (viewport ? viewport.width : window.innerWidth) + 'px');
+            viewer.style.setProperty('--frame-viewport-height', (viewport ? viewport.height : window.innerHeight) + 'px');
+        }
+        window.addEventListener('resize', sizeToViewport);
+        if (window.visualViewport) {
+            window.visualViewport.addEventListener('resize', sizeToViewport);
+            window.visualViewport.addEventListener('scroll', sizeToViewport);
+        }
 
         function renderFrame() {
             const frame = frames[activeIndex];
@@ -154,13 +194,21 @@
                 return;
             }
 
+            const opening = viewer.hidden;
+            if (opening) {
+                pageScrollX = window.scrollX;
+                pageScrollY = window.scrollY;
+                triggerButton = trigger || thumbnailButtons[index];
+                document.body.style.setProperty('--frame-page-top', -pageScrollY + 'px');
+                document.documentElement.classList.add('frame-viewer-open');
+                document.body.classList.add('frame-viewer-open');
+            }
             activeIndex = index;
-            triggerButton = trigger || thumbnailButtons[index];
             renderFrame();
             viewer.hidden = false;
             viewer.classList.remove("hidden");
-            document.body.classList.add("overflow-hidden");
-            closeButton.focus();
+            sizeToViewport();
+            if (opening) closeButton.focus({preventScroll: true});
         }
 
         function closeViewer() {
@@ -170,9 +218,12 @@
 
             viewer.hidden = true;
             viewer.classList.add("hidden");
-            document.body.classList.remove("overflow-hidden");
+            document.documentElement.classList.remove('frame-viewer-open');
+            document.body.classList.remove('frame-viewer-open');
+            document.body.style.removeProperty('--frame-page-top');
+            window.scrollTo(pageScrollX, pageScrollY);
             if (triggerButton) {
-                triggerButton.focus();
+                triggerButton.focus({preventScroll: true});
             }
         }
 

@@ -1,8 +1,16 @@
 <section class="glass border border-gray-700 rounded-2xl p-4 sm:p-6 mb-8 min-w-0" id="coach-review">
     <h3 class="text-xl font-semibold text-accent">{{ t("Coach Review") }}</h3>
     <p id="coach-review-state" class="my-3">{{ t('Review saved') if coach_review and coach_review.status == 'saved' else (t('Draft') if coach_review else t('No coach review')) }}</p>
-    <details>
-        <summary class="cursor-pointer rounded-xl border border-gray-600 p-3 text-accent">{{ t("Review AI analysis") }}</summary>
+    {% set saved_review = coach_review and coach_review.status == 'saved' %}
+    <div id="coach-review-summary" {% if not saved_review %}hidden{% endif %} class="mb-4 space-y-2" aria-live="polite">
+        <div id="coach-summary-comment" {% if not saved_review or not coach_review.general_comment %}hidden{% endif %}>
+            <h4 class="text-sm text-gray-400">{{ t("General coach comment") }}</h4>
+            <p id="coach-summary-comment-text" class="whitespace-pre-wrap break-words">{{ coach_review.general_comment if saved_review else '' }}</p>
+        </div>
+        <p id="coach-summary-notes" class="text-sm text-gray-400">{{ t("Frame notes: {count}", count=coach_review.frame_notes | length) if saved_review else '' }}</p>
+    </div>
+    <details id="coach-review-editor">
+        <summary id="coach-review-edit" class="cursor-pointer rounded-xl border border-gray-600 p-3 text-accent">{{ t("Edit Coach Review") if saved_review else t("Review AI analysis") }}</summary>
         <p class="text-sm text-gray-400 my-4">{{ t("Leave a correction blank to keep the original AI text. Frame notes and fields are saved together.") }}</p>
         <form id="coach-review-form" class="space-y-5">
             {% set labels = {'level':'Level', 'main_issue':'Main Issue', 'why_it_matters':'Why It Matters', 'how_to_fix':'How to Fix', 'drill':'Drill', 'coach_note':'Coach Note'} %}
