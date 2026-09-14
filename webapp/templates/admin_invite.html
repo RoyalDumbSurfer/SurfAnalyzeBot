@@ -1,6 +1,15 @@
 <section class="glass border border-gray-700 rounded-2xl p-4 mb-6" aria-label="{{ t('Create invite') }}">
     <form id="create-invite-form" action="/api/invites" method="post">
         <input type="hidden" name="csrf" value="{{ csrf_token(request) }}">
+        <label for="invite-label" class="block mb-2">{{ t('Label (optional)') }}</label>
+        <input id="invite-label" name="label" maxlength="100" class="w-full min-w-0 rounded-xl bg-gray-900 border border-gray-600 p-3 text-base mb-3">
+        <label for="invite-expiry" class="block mb-2">{{ t('Expires in') }}</label>
+        <select id="invite-expiry" name="expiry" class="w-full min-w-0 rounded-xl bg-gray-900 border border-gray-600 p-3 text-base mb-4">
+            <option value="7" selected>{{ t('7 days') }}</option>
+            <option value="1">{{ t('1 day') }}</option>
+            <option value="30">{{ t('30 days') }}</option>
+            <option value="none">{{ t('No expiry') }}</option>
+        </select>
         <button id="create-invite" type="submit" class="glow-btn rounded-xl px-4 py-3 font-semibold text-black">{{ t("Create invite") }}</button>
     </form>
     <div id="invite-result" hidden class="mt-4">
@@ -8,6 +17,7 @@
         <input id="invite-link" type="text" readonly autocomplete="off" spellcheck="false" class="w-full min-w-0 rounded-xl bg-gray-900 border border-gray-600 p-3 text-base">
         <button id="copy-invite" type="button" class="mt-3 rounded-xl border border-gray-500 px-4 py-3">{{ t("Copy link") }}</button>
     </div>
+    <p class="text-sm text-gray-400 mt-3">{{ t('Copy the link now. It cannot be recovered after leaving this page.') }}</p>
     <p id="invite-status" role="status" aria-live="polite" class="text-sm mt-2"></p>
 </section>
 <script>
@@ -27,6 +37,8 @@
             link.value = data.url;
             document.getElementById('invite-result').hidden = false;
             link.focus();
+            // Refresh only the server-rendered list; retain the new link locally.
+            document.dispatchEvent(new Event('invite-created'));
         } catch (_) {
             status.textContent = {{ t("Could not create an invite. Please reload and try again.") | tojson }};
         } finally {

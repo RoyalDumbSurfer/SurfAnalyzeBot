@@ -1,0 +1,52 @@
+{% extends 'base.html' %}
+{% block title %}{{ t('Invites') }} - SurfAnalyze{% endblock %}
+{% block content %}
+<p class="text-sm text-gray-400 mb-2">{{ t('Admin') }}</p>
+<h1 class="text-3xl font-bold mb-6">{{ t('Invites') }}</h1>
+{% if message %}<p role="status" class="mb-4">{{ t(message) }}</p>{% endif %}
+{% include 'admin_invite.html' %}
+<div id="invite-list">
+    <h2 class="text-xl font-semibold mb-4">{{ t('Invite history') }}</h2>
+    {% for invite in invites %}
+    <article class="glass border border-gray-700 rounded-2xl p-4 mb-4 min-w-0 break-words" data-invite-id="{{ invite.id }}">
+        <h3 class="font-semibold break-all">{{ invite.label or t('Unlabelled invite') }}</h3>
+        <p class="text-accent my-2">{{ t(invite.status) }}</p>
+        <dl class="text-sm grid gap-2">
+            <div><dt class="inline text-gray-400">{{ t('Created') }}:</dt> <dd class="inline">{{ invite.created_at | invite_time }}</dd></div>
+            <div><dt class="inline text-gray-400">{{ t('Expires') }}:</dt> <dd class="inline">{{ invite.expires_at | invite_time if invite.expires_at is not none else t('No expiry') }}</dd></div>
+            <div><dt class="inline text-gray-400">{{ t('Usage') }}:</dt> <dd class="inline">{{ invite.used_count }} / {{ invite.max_uses if invite.max_uses is not none else t('Unlimited') }}</dd></div>
+            <div><dt class="inline text-gray-400">{{ t('Enabled') }}:</dt> <dd class="inline">{{ t('Yes') if invite.is_active else t('No') }}</dd></div>
+            {% if invite.used_count %}
+            <div><dt class="inline text-gray-400">{{ t('Last activated by') }}:</dt> <dd class="inline break-all">{{ invite.used_by or t('Not recorded') }}</dd></div>
+            <div><dt class="inline text-gray-400">{{ t('Activated at') }}:</dt> <dd class="inline">{{ invite.used_at | invite_time if invite.used_at else t('Not recorded') }}</dd></div>
+            {% endif %}
+        </dl>
+        {% if invite.is_active and not invite.used_count %}
+        <form action="/admin/invites/{{ invite.id }}/disable" method="post" class="mt-4">
+            <input type="hidden" name="csrf" value="{{ csrf_token(request) }}">
+            <label class="flex items-center gap-3 py-3"><input type="checkbox" name="confirmed" value="yes" required class="w-5 h-5 shrink-0">{{ t('Confirm disabling this invite') }}</label>
+            <button type="submit" class="rounded-xl border border-red-400 px-4 py-3">{{ t('Disable invite') }}</button>
+        </form>
+        {% endif %}
+    </article>
+    {% else %}<p>{{ t('No invites yet.') }}</p>{% endfor %}
+    <nav class="flex flex-wrap gap-4" aria-label="{{ t('Invite history') }}">
+        <a href="/admin/invites" class="py-3 text-accent">{{ t('Newest invites') }}</a>
+        {% if next_before %}<a href="/admin/invites?before={{ next_before }}" class="py-3 text-accent">{{ t('Older invites') }}</a>{% endif %}
+    </nav>
+</div>
+<script>
+document.addEventListener('invite-created', async () => {
+    try {
+        const response = await fetch('/admin/invites', {credentials: 'same-origin'});
+        if (!response.ok || response.redirected) throw new Error('List unavailable');
+        const page = new DOMParser().parseFromString(await response.text(), 'text/html');
+        const list = page.getElementById('invite-list');
+        if (!list) throw new Error('List unavailable');
+        document.getElementById('invite-list').replaceWith(list);
+    } catch (_) {
+        document.getElementById('invite-status').textContent = {{ t('Invite created. Copy the link, then refresh to update the list.') | tojson }};
+    }
+});
+</script>
+{% endblock %}

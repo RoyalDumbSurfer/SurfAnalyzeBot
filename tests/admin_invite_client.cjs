@@ -19,7 +19,8 @@ const vm = require('node:vm');
     let copied;
     const navigator = {clipboard: {async writeText(value) { copied = value; }}};
     const context = {
-        document: {getElementById(id) { return elements[id]; }},
+        document: {getElementById(id) { return elements[id]; }, dispatchEvent() {}},
+        Event: class {},
         navigator,
         FormData: class { constructor(form) { assert.equal(form, elements['create-invite-form']); } },
         async fetch(target, options) {

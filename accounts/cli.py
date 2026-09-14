@@ -25,6 +25,8 @@ def main():
     invite.add_argument("--max-uses", type=int, default=1)
     invite.add_argument("--unlimited", action="store_true")
     invite.add_argument("--label")
+    invite.add_argument("--expiry-days", type=int, choices=(1, 7, 30), default=7)
+    invite.add_argument("--no-expiry", action="store_true")
     disable = commands.add_parser("disable-invite")
     disable.add_argument("--id", type=int, required=True)
     migrate = commands.add_parser("import-legacy")
@@ -44,7 +46,8 @@ def main():
             code = read_secret("Paste a random invite code (24-256 characters; hidden): ")
             if code != read_secret("Confirm invite code: "):
                 raise ValueError("Invite codes do not match.")
-            invite_id = store.create_invite(code, max_uses=None if args.unlimited else args.max_uses, label=args.label)
+            invite_id = store.create_invite(code, max_uses=None if args.unlimited else args.max_uses, label=args.label,
+                                           expiry_days=None if args.no_expiry else args.expiry_days)
             print(f"Invite created: ID {invite_id}. The code is not displayed or recoverable.")
         elif args.command == "disable-invite":
             with store.database.connect(write=True) as db:

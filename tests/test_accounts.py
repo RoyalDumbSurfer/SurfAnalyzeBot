@@ -49,15 +49,15 @@ def test_unusable_invites_rejected(guest, app_state, kind):
         if kind == "exhausted":
             db.execute("UPDATE invites SET used_count=1 WHERE id=?", (invite_id,))
     response = register(guest, "wrong" if kind == "invalid" else INVITE)
-    assert response.status_code == 400
-    assert "Unable to register" in response.text
+    assert response.status_code == 303 and response.headers['location'] == '/register'
+    assert {'invalid': 'not valid', 'disabled': 'disabled', 'exhausted': 'already been used'}[kind] in guest.get('/register').text
     assert guest.get("/api/me").status_code == 401
 
 
 def test_duplicate_username_does_not_consume_invite(guest, app_state):
     store = app_state[0]
     store.create_invite(INVITE)
-    assert register(guest, username="ALICE").status_code == 400
+    assert register(guest, username="ALICE").headers['location'] == '/register'
     with store.database.connect() as db:
         assert db.execute("SELECT used_count FROM invites").fetchone()[0] == 0
 
@@ -110,7 +110,10 @@ def test_legacy_beta_and_telegram_do_not_authenticate(guest, monkeypatch):
 @pytest.mark.parametrize("path", ["/login", "/register", "/logout", "/upload"])
 def test_csrf_required(client, path):
     del client.headers["X-CSRF-Token"]
-    assert client.post(path).status_code == 403
+    response = client.post(path)
+    assert response.status_code == (303 if path == '/register' else 403)
+    if path == '/register':
+        assert response.headers['location'] == '/register'
 
 
 def test_cross_origin_post_denied_even_with_token(client):
@@ -127,7 +130,8 @@ def test_persistent_auth_rate_limits(guest, app_state):
     response = guest.post("/login", data={"username": "alice", "password": PASSWORD, "csrf": csrf(guest)})
     assert response.status_code == 429
     response = register(guest, username="alice")
-    assert response.status_code == 429
+    assert response.status_code == 303 and response.headers['location'] == '/register'
+    assert 'Too many attempts' in guest.get('/register').text
 
 
 def test_user_ownership_every_resource(client, monkeypatch, app_state):
@@ -294,8 +298,8 @@ def test_auth_errors_never_echo_sensitive_fields(guest):
     secret = "do-not-reflect-this-password-or-invite"
     response = guest.post("/register", data={"username": "x" * 41, "password": secret,
                           "invite_code": secret, "csrf": csrf(guest)})
-    assert response.status_code == 400
-    assert secret not in response.text
+    assert response.status_code == 303 and response.headers['location'] == '/register'
+    assert secret not in response.text + guest.get('/register').text
 
 
 def test_session_fixation_and_tampering(guest):

@@ -40,12 +40,15 @@ def test_admin_creates_single_use_link_and_registration(admin, app_state, caplog
     assert response.headers['referrer-policy'] == 'no-referrer'
     assert 'httponly' in response.headers['set-cookie'].lower()
     page = admin.get('/register')
+    assert page.headers['referrer-policy'] == 'same-origin'
     assert token not in page.text
     assert 'applied automatically' in page.text
     # The invitation survives changing language and a rejected registration.
     assert admin.post('/language', data={'csrf': csrf(admin), 'selected': 'en', 'return_to': '/register'}).status_code == 303
     data = {'username': 'alice', 'password': PASSWORD, 'csrf': csrf(admin)}
-    assert admin.post('/register', data=data).status_code == 400
+    rejected = admin.post('/register', data=data)
+    assert rejected.status_code == 303 and rejected.headers['location'] == '/register'
+    assert 'Unable to register' in admin.get('/register').text
     data['username'] = 'invited'
     assert admin.post('/register', data=data).status_code == 303
     assert admin.get('/api/me').json()['role'] == 'user'
@@ -55,7 +58,9 @@ def test_admin_creates_single_use_link_and_registration(admin, app_state, caplog
     admin.post('/logout', data={'csrf': csrf(admin, '/')})
     admin.get('/register?' + url.query)
     data.update(username='second', csrf=csrf(admin))
-    assert admin.post('/register', data=data).status_code == 400
+    rejected = admin.post('/register', data=data)
+    assert rejected.status_code == 303 and rejected.headers['location'] == '/register'
+    assert 'already been used' in admin.get('/register').text
 
 
 @pytest.mark.parametrize('role', ['user', 'coach'])
@@ -91,14 +96,16 @@ def test_bad_link_rejected(guest, app_state, kind):
         with app_state[0].database.connect(write=True) as db:
             db.execute('UPDATE invites SET is_active=0 WHERE id=?', (invite_id,))
     guest.get('/register', params={'invite': token})
-    assert guest.post('/register', data={'username': 'newuser', 'password': PASSWORD, 'csrf': csrf(guest)}).status_code == 400
+    rejected = guest.post('/register', data={'username': 'newuser', 'password': PASSWORD, 'csrf': csrf(guest)})
+    assert rejected.status_code == 303 and rejected.headers['location'] == '/register'
+    assert ('not valid' if kind == 'invalid' else 'disabled') in guest.get('/register').text
     assert guest.get('/api/me').status_code == 401
 
 
 @pytest.mark.parametrize('language,create,copy', [('ru', 'Создать инвайт', 'Скопировать ссылку'), ('en', 'Create invite', 'Copy link')])
 def test_admin_ui_localization_and_javascript(admin, language, create, copy, tmp_path):
     admin.cookies.set('surfanalyze_language', language)
-    page = admin.get('/dashboard').text
+    page = admin.get('/admin/invites').text
     assert create in page and copy in page
     node = shutil.which('node')
     assert node
@@ -109,9 +116,10 @@ def test_admin_ui_localization_and_javascript(admin, language, create, copy, tmp
     subprocess.run([node, 'tests/admin_invite_client.cjs', str(path)], check=True, capture_output=True)
 
 
-def test_access_log_redacts_invite():
+@pytest.mark.parametrize('path', ['/register', '/register/', '/%72egister'])
+def test_access_log_redacts_invite(path):
     record = logging.LogRecord('uvicorn.access', logging.INFO, '', 0, '%s - "%s %s HTTP/%s" %d',
-                               ('client', 'GET', '/register?invite=secret', '1.1', 303), None)
+                               ('client', 'GET', path + '?invite=secret', '1.1', 303), None)
     main.InviteAccessLogFilter().filter(record)
     assert 'secret' not in record.getMessage() and '/register' in record.getMessage()
 

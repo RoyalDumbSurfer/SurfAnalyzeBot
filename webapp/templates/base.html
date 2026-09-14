@@ -102,6 +102,7 @@
             <span class="text-gray-300 break-all">{{ request.state.user.username }}</span>
             <a href="/" class="hover:text-white">{{ t("Upload") }}</a>
             <a href="/dashboard" class="hover:text-white">{{ t("Your Videos") }}</a>
+            {% if request.state.user.role == 'admin' %}<a href="/admin" class="hover:text-white py-3">{{ t("Admin") }}</a>{% endif %}
             <form action="/logout" method="post">
                 <input type="hidden" name="csrf" value="{{ csrf_token(request) }}">
                 <button type="submit" class="hover:text-white">{{ t("Log out") }}</button>
@@ -115,9 +116,6 @@
 </nav>
 
 <main class="max-w-4xl mx-auto px-6 py-16 relative z-10">
-    {% if request.state.user and request.state.user.role == 'admin' %}
-    {% include "admin_invite.html" %}
-    {% endif %}
     {% block content %}{% endblock %}
 </main>
 

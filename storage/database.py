@@ -55,6 +55,8 @@ class Database:
             # production stores use `python -m coach.cli migrate` before deploy.
             from coach.migration import migrate
             migrate(self)
+            from accounts.invite_migration import migrate as migrate_invites
+            migrate_invites(self)
         else:
             if not self.path.is_file():
                 raise RuntimeError("Database is missing. Bootstrap and import legacy jobs before starting services.")

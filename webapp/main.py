@@ -11,6 +11,8 @@ import logging
 import sqlite3
 import re
 import secrets
+from datetime import datetime, timezone
+from urllib.parse import unquote
 
 from config import settings
 from utils.video_formats import VIDEO_MIME_TYPES, GENERIC_MIME_TYPES
@@ -19,7 +21,7 @@ from starlette.exceptions import HTTPException
 from starlette.formparsers import MultiPartException
 
 from contextlib import asynccontextmanager
-from accounts.store import AccountStore
+from accounts.store import AccountStore, InviteError
 from accounts.web import current_user, csrf_token, check_csrf, owned_job
 from coach.store import CoachStore, ConflictError, FIELDS as COACH_FIELDS, ROLES as COACH_ROLES
 from webapp.i18n import language, translate, template_translate, SUPPORTED_LANGUAGES
@@ -45,7 +47,7 @@ class InviteAccessLogFilter(logging.Filter):
     def filter(self, record):
         if isinstance(record.args, tuple) and len(record.args) == 5:
             address, method, target, protocol, status = record.args
-            if isinstance(target, str) and target.split("?", 1)[0] == "/register":
+            if isinstance(target, str) and unquote(target.split("?", 1)[0]).rstrip('/') == "/register":
                 record.args = (address, method, "/register", protocol, status)
         return True
 
@@ -65,6 +67,9 @@ async def lifespan(app):
         version = db.execute("SELECT value FROM metadata WHERE key='coach_schema_version'").fetchone()
         if not version or version[0] != '1':
             raise RuntimeError('Run python -m coach.cli migrate before starting the web app.')
+        version = db.execute("SELECT value FROM metadata WHERE key='invite_schema_version'").fetchone()
+        if not version or version[0] != '1':
+            raise RuntimeError('Run python -m accounts.invite_migration before starting the web app.')
     app.state.job_manager = job_manager
     app.state.results_dir = Path("videos_processed")
     yield
@@ -82,7 +87,8 @@ class UploadBodyLimit:
 
     async def __call__(self, scope, receive, send):
         coach_request = scope.get('path', '').startswith('/api/coach-reviews/')
-        if scope["type"] != "http" or (not coach_request and scope["path"] not in {"/upload", "/login", "/register", "/logout", "/language", "/api/invites"}):
+        invite_request = scope.get('path', '').startswith('/admin/invites/')
+        if scope["type"] != "http" or (not coach_request and not invite_request and scope["path"] not in {"/upload", "/login", "/register", "/logout", "/language", "/api/invites"}):
             return await self.app(scope, receive, send)
         limit = 512 * 1024 if coach_request else (settings.MAX_FILE_SIZE + 1024 * 1024 if scope["path"] == "/upload" else 16 * 1024)
         received = 0
@@ -118,12 +124,18 @@ async def account_gate(request: Request, call_next):
         origin = request.headers.get("origin")
         expected_origin = str(request.base_url).rstrip("/")
         if request.method not in {"GET", "HEAD", "OPTIONS"} and origin and origin != expected_origin:
-            response = HTMLResponse(translate(request, "Please reload the page and try again."), status_code=403)
+            response = (auth_page(request, 'register', 'Please reload the page and try again.', 403)
+                        if request.url.path == '/register' else
+                        HTMLResponse(translate(request, "Please reload the page and try again."), status_code=403))
         else:
             response = await call_next(request)
     response.headers["Cache-Control"] = "no-store"
     response.headers["X-Content-Type-Options"] = "nosniff"
-    response.headers["Referrer-Policy"] = "no-referrer" if request.url.path == "/register" else "same-origin"
+    # Hide the bearer URL during handoff. The clean GET form uses same-origin:
+    # no-referrer on that document makes browsers send Origin: null on POST,
+    # which correctly fails our existing origin check.
+    response.headers["Referrer-Policy"] = ("no-referrer" if request.url.path.rstrip('/') == "/register"
+                                            and 'invite' in request.query_params else "same-origin")
     return response
 
 
@@ -142,6 +154,10 @@ app.add_middleware(
 templates = Jinja2Templates(directory="webapp/templates")
 templates.env.globals["csrf_token"] = csrf_token
 templates.env.globals.update(t=template_translate, language=language)
+templates.env.filters['invite_time'] = lambda value: (
+    datetime.fromtimestamp(value, timezone.utc).strftime('%Y-%m-%d %H:%M UTC')
+    if isinstance(value, int) else datetime.fromisoformat(value).astimezone(timezone.utc).strftime('%Y-%m-%d %H:%M UTC')
+)
 
 
 @app.post("/language")
@@ -151,7 +167,7 @@ async def select_language(request: Request, selected: str = Form(), csrf: str = 
     if selected not in SUPPORTED_LANGUAGES:
         raise HTTPException(status_code=400, detail="Unsupported language")
     # Only known local pages; no user-provided absolute URLs or Referer redirects.
-    if not re.fullmatch(r"/(?:login|register|dashboard|(?:result|processing)/[A-Za-z0-9_-]+)?", return_to):
+    if not re.fullmatch(r"/(?:login|register|dashboard|admin/invites|(?:result|processing)/[A-Za-z0-9_-]+)?", return_to):
         return_to = "/"
     response = RedirectResponse(return_to, status_code=303)
     response.set_cookie("surfanalyze_language", selected, max_age=365 * 86400,
@@ -164,6 +180,10 @@ EXTRACTED_FRAMES_DIR = Path("data/extracted_frames")
 EXTRACTED_FRAMES_DIR.mkdir(parents=True, exist_ok=True)
 
 def auth_page(request, mode, error=None, status_code=200):
+    if mode == 'register' and request.method == 'POST':
+        # Store only a safe message key, never submitted passwords/form bodies.
+        request.session['registration_error'] = error
+        return RedirectResponse('/register', status_code=303)
     return templates.TemplateResponse("account.html", {
         "request": request, "mode": mode, "error": translate(request, error) if error else None, "csrf": csrf_token(request)
     }, status_code=status_code)
@@ -181,15 +201,23 @@ async def login_page(request: Request):
 
 @app.get("/register", response_class=HTMLResponse)
 async def register_page(request: Request):
+    if request.state.user:
+        return RedirectResponse('/dashboard', status_code=303)
     if "invite" in request.query_params:
         token = request.query_params.get("invite", "")
         request.session.pop("registration_invite", None)
+        request.session.pop('registration_error', None)
         if 24 <= len(token) <= 256:
             request.session["registration_invite"] = token
+        else:
+            request.session['registration_error'] = 'This invite is not valid.'
         # No HTML/third-party scripts see the bearer token in the URL. The
         # existing signed HttpOnly session keeps it across errors/language changes.
         return RedirectResponse("/register", status_code=303)
-    return auth_page(request, "register")
+    error = request.session.pop('registration_error', None)
+    if not error and request.session.get('registration_invite'):
+        error = await run_in_threadpool(account_store.invite_error, request.session['registration_invite'])
+    return auth_page(request, "register", error)
 
 
 async def establish_session(request, user):
@@ -222,13 +250,19 @@ async def register(request: Request, username: str = Form(default="", max_length
                    password: str = Form(default="", max_length=128),
                    invite_code: str = Form(default="", max_length=256), csrf: str = Form(default="")):
     check_csrf(request, csrf)
+    if request.state.user:
+        return RedirectResponse('/dashboard', status_code=303)
     if not await allow_auth_attempt(request, username):
         return auth_page(request, "register", "Too many attempts. Please try again in 15 minutes.", 429)
     try:
         user = await run_in_threadpool(account_store.register, username, password,
                                       invite_code or request.session.get("registration_invite", ""))
+    except InviteError as error:
+        return auth_page(request, 'register', str(error), 400)
     except ValueError:
         return auth_page(request, "register", "Unable to register. Check your invite, username, and password requirements.", 400)
+    except sqlite3.Error:
+        return auth_page(request, 'register', 'Please check your details and try again.', 503)
     return await establish_session(request, user)
 
 
@@ -247,17 +281,54 @@ def api_me(request: Request):
 
 
 @app.post("/api/invites")
-async def create_invite(request: Request, csrf: str = Form(default="")):
+async def create_invite(request: Request, csrf: str = Form(default=""),
+                        label: str = Form(default='', max_length=100), expiry: str = Form(default='7', max_length=4)):
     if current_user(request).role != "admin":
         raise HTTPException(status_code=403, detail="Forbidden")
     check_csrf(request, csrf)
+    if expiry not in {'1', '7', '30', 'none'}:
+        raise HTTPException(status_code=400, detail='Invalid expiry')
     token = secrets.token_urlsafe(32)
     try:
-        await run_in_threadpool(account_store.create_invite, token, max_uses=1, label="admin-ui")
+        await run_in_threadpool(account_store.create_invite, token, max_uses=1, label=label.strip() or None,
+                               expiry_days=None if expiry == 'none' else int(expiry))
     except sqlite3.Error:
         # Never return SQL context or the token on a failed write.
         return JSONResponse({"error": "Invite creation failed"}, status_code=503)
     return JSONResponse({"url": "https://surfanalyze.com/register?invite=" + token}, status_code=201)
+
+
+@app.get('/admin')
+async def admin_home(request: Request):
+    if current_user(request).role != 'admin':
+        raise HTTPException(status_code=403, detail='Forbidden')
+    return RedirectResponse('/admin/invites', status_code=303)
+
+
+@app.get('/admin/invites', response_class=HTMLResponse)
+async def invite_list(request: Request, before: int | None = None):
+    if current_user(request).role != 'admin':
+        raise HTTPException(status_code=403, detail='Forbidden')
+    if before is not None and not 0 < before < 2**63:
+        raise HTTPException(status_code=400, detail='Invalid page')
+    rows = await run_in_threadpool(account_store.list_invites, before=before, limit=51)
+    return templates.TemplateResponse('admin_invites.html', {
+        'request': request, 'invites': rows[:50], 'next_before': rows[49]['id'] if len(rows) > 50 else None,
+        'message': request.session.pop('invite_message', None),
+    })
+
+
+@app.post('/admin/invites/{invite_id}/disable')
+async def disable_invite(request: Request, invite_id: int, csrf: str = Form(default=''),
+                         confirmed: str = Form(default='')):
+    if current_user(request).role != 'admin':
+        raise HTTPException(status_code=403, detail='Forbidden')
+    check_csrf(request, csrf)
+    if confirmed != 'yes' or not 0 < invite_id < 2**63:
+        raise HTTPException(status_code=400, detail='Confirmation required')
+    disabled = await run_in_threadpool(account_store.disable_invite, invite_id)
+    request.session['invite_message'] = 'Invite disabled.' if disabled else 'Invite changed or was already used. Refresh the list.'
+    return RedirectResponse('/admin/invites', status_code=303)
 
 
 @app.get("/frames/{job_id}/{filename}")
@@ -349,6 +420,8 @@ async def expected_http_error(request: Request, exc: HTTPException):
 
 @app.exception_handler(MultiPartException)
 async def oversized_body(request: Request, exc: MultiPartException):
+    if request.url.path == '/api/invites' or request.url.path.startswith('/admin/invites/'):
+        return JSONResponse({'error': 'Invalid invite request'}, status_code=413)
     if request.url.path in {"/login", "/register"}:
         return auth_page(request, request.url.path[1:], "Please check your details and try again.", 413)
     return upload_page(request, "Video is too large. Please choose a smaller video.", 413)
@@ -356,6 +429,8 @@ async def oversized_body(request: Request, exc: MultiPartException):
 
 @app.exception_handler(RequestValidationError)
 async def invalid_form(request: Request, exc: RequestValidationError):
+    if request.url.path == '/api/invites' or request.url.path.startswith('/admin/invites/'):
+        return JSONResponse({'error': 'Invalid invite request'}, status_code=400)
     if request.url.path == "/upload":
         return upload_page(request, "Please choose a valid video to upload.", 400)
     if request.url.path in {"/login", "/register"}:

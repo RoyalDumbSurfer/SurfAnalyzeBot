@@ -8,6 +8,30 @@ from storage.database import Database
 from .security import hash_password, normalize_username, token_hash, verify_password
 
 
+class InviteError(ValueError):
+    """Safe, localizable invite failure; never contains caller input."""
+
+
+def invite_status(invite, now):
+    if invite['max_uses'] is not None and invite['used_count'] >= invite['max_uses']:
+        return 'Used'
+    if not invite['is_active']:
+        return 'Disabled'
+    if invite['expires_at'] is not None and invite['expires_at'] <= now:
+        return 'Expired'
+    return 'Active'
+
+
+def check_invite(invite, now):
+    if invite is None:
+        raise InviteError('This invite is not valid.')
+    message = {'Used': 'This invite has already been used.',
+               'Disabled': 'This invite has been disabled.',
+               'Expired': 'This invite has expired.'}.get(invite_status(invite, now))
+    if message:
+        raise InviteError(message)
+
+
 @dataclass(frozen=True)
 class User:
     id: int
@@ -35,15 +59,46 @@ class AccountStore:
                        (username, encoded, datetime.now(timezone.utc).isoformat()))
             return user_from_row(db.execute("SELECT * FROM users WHERE username=?", (username,)).fetchone())
 
-    def create_invite(self, code, *, max_uses=1, label=None):
+    def create_invite(self, code, *, max_uses=1, label=None, expiry_days=7):
         if not 24 <= len(code) <= 256:
             raise ValueError("Use a randomly generated invite code with 24-256 characters.")
         if max_uses is not None and max_uses < 1:
             raise ValueError("Maximum uses must be positive.")
+        if expiry_days not in (None, 1, 7, 30):
+            raise ValueError('Invalid expiry.')
+        if label is not None and len(label) > 100:
+            raise ValueError('Label is too long.')
+        expires_at = None if expiry_days is None else int(time.time()) + expiry_days * 86400
         with self.database.connect(write=True) as db:
-            cursor = db.execute("INSERT INTO invites(code_hash,max_uses,created_at,label) VALUES (?,?,?,?)",
-                                (token_hash(code), max_uses, datetime.now(timezone.utc).isoformat(), label))
+            cursor = db.execute("INSERT INTO invites(code_hash,max_uses,created_at,label,expires_at) VALUES (?,?,?,?,?)",
+                                (token_hash(code), max_uses, datetime.now(timezone.utc).isoformat(), label, expires_at))
             return cursor.lastrowid
+
+    def invite_error(self, code):
+        with self.database.connect() as db:
+            invite = db.execute('SELECT * FROM invites WHERE code_hash=?', (token_hash(code),)).fetchone()
+            try:
+                check_invite(invite, int(time.time()))
+            except InviteError as error:
+                return str(error)
+        return None
+
+    def list_invites(self, *, before=None, limit=50):
+        with self.database.connect() as db:
+            rows = db.execute('SELECT i.id,i.label,i.created_at,i.expires_at,i.used_count,i.max_uses,'
+                              'i.is_active,i.used_at,u.username AS used_by FROM invites i '
+                              'LEFT JOIN users u ON u.id=i.used_by_user_id '
+                              'WHERE (? IS NULL OR i.id < ?) ORDER BY i.id DESC LIMIT ?',
+                              (before, before, limit)).fetchall()
+        now = int(time.time())
+        return [dict(row, status=invite_status(row, now)) for row in rows]
+
+    def disable_invite(self, invite_id):
+        # Activation and revocation take the same write lock. Neither can
+        # invalidate a successful registration or erase its history.
+        with self.database.connect(write=True) as db:
+            return db.execute('UPDATE invites SET is_active=0 WHERE id=? AND used_count=0 AND is_active=1',
+                              (invite_id,)).rowcount == 1
 
     def register(self, username, password, invite_code):
         username = normalize_username(username)
@@ -51,14 +106,14 @@ class AccountStore:
         # One transaction prevents invite overuse and duplicate registration races.
         try:
             with self.database.connect(write=True) as db:
-                invite = db.execute("SELECT * FROM invites WHERE code_hash=? AND is_active=1 "
-                                    "AND (max_uses IS NULL OR used_count < max_uses)",
+                invite = db.execute("SELECT * FROM invites WHERE code_hash=?",
                                     (token_hash(invite_code),)).fetchone()
-                if invite is None:
-                    raise ValueError("Unable to register. Check your invite code and username.")
+                check_invite(invite, int(time.time()))
+                activated_at = datetime.now(timezone.utc).isoformat()
                 cursor = db.execute("INSERT INTO users(username,password_hash,role,created_at) VALUES (?,?,'user',?)",
-                                    (username, encoded, datetime.now(timezone.utc).isoformat()))
-                db.execute("UPDATE invites SET used_count=used_count+1 WHERE id=?", (invite["id"],))
+                                    (username, encoded, activated_at))
+                db.execute("UPDATE invites SET used_count=used_count+1,used_by_user_id=?,used_at=? WHERE id=?",
+                           (cursor.lastrowid, activated_at, invite["id"]))
                 return user_from_row(db.execute("SELECT * FROM users WHERE id=?", (cursor.lastrowid,)).fetchone())
         except sqlite3.IntegrityError:
             raise ValueError("Unable to register. Check your invite code and username.") from None
