@@ -150,7 +150,9 @@ def test_provenance_private_and_original_unchanged(knowledge, client):
     page = client.get('/result/' + job.id).text
     assert 'coach-knowledge-used' not in page
     assert 'private historical coaching' not in page
-    assert 'coach_knowledge' not in client.get('/api/job/' + job.id).text
+    response = client.get('/api/jobs/' + job.id)
+    assert response.status_code == 200
+    assert 'coach_knowledge' not in response.text
 
 
 @pytest.mark.parametrize('retrieval_fails', [False, True])
