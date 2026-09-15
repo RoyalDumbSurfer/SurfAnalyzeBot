@@ -66,7 +66,7 @@ class JobManager:
             return self._job(db.execute(query, values).fetchone())
 
     def update_job(self, job_id: str, *, status=None, result_path=None, error_message=None,
-                   analysis_result=None, extracted_frame_paths=None) -> Optional[Job]:
+                   analysis_result=None, extracted_frame_paths=None, coach_knowledge=None) -> Optional[Job]:
         with self.database.connect(write=True) as db:
             row = db.execute("SELECT * FROM jobs WHERE id=?", (job_id,)).fetchone()
             job = self._job(row)
@@ -75,7 +75,7 @@ class JobManager:
             payload = json.loads(row["payload"])
             for name, value in (("status", status), ("result_path", result_path),
                                 ("error_message", error_message), ("analysis_result", analysis_result),
-                                ("extracted_frame_paths", extracted_frame_paths)):
+                                ("extracted_frame_paths", extracted_frame_paths), ("coach_knowledge", coach_knowledge)):
                 if value is not None:
                     setattr(job, name, value)
                     payload[name] = value.value if isinstance(value, JobStatus) else value

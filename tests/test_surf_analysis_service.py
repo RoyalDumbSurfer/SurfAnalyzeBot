@@ -28,3 +28,11 @@ def test_analyze_surf_frames_delegates_to_openai_provider(monkeypatch, tmp_path:
         original_filename="ride.mp4",
         job_id="job-123",
     )
+
+
+def test_service_forwards_provider_independent_coach_context(monkeypatch):
+    provider = MagicMock()
+    monkeypatch.setattr('services.surf_analysis_service.OpenAISurfAnalysisProvider', MagicMock(return_value=provider))
+    analyze_surf_frames([], language='ru', coach_context='Expert context')
+    assert provider.analyze.call_args.kwargs['coach_context'] == 'Expert context'
+    assert provider.analyze.call_args.kwargs['language'] == 'ru'

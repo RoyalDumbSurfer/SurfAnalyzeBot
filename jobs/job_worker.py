@@ -5,6 +5,9 @@ from pathlib import Path
 from typing import Optional
 
 import cv2
+import sqlite3
+
+from coach.knowledge import build_coach_context, expert_examples
 
 from services.surf_analysis_service import analyze_surf_frames
 from utils.video_formats import VIDEO_EXTENSIONS
@@ -118,11 +121,21 @@ def process_jobs(poll_interval: float = 2.0) -> None:
                         EXTRACTED_FRAMES_DIR / job.id / Path(frame_path).name
                         for frame_path in extracted_frame_paths or []
                     ]
+                    try:
+                        coach_context, provenance = build_coach_context(
+                            expert_examples(jm.database), job.original_filename or '',
+                            job_id=job.id, language=job.analysis_language)
+                    except sqlite3.Error:
+                        # Retrieval availability must not break the core analysis flow.
+                        coach_context, provenance = build_coach_context([])
+                        provenance['retrieval_error'] = 'database_unavailable'
+                    jm.update_job(job.id, coach_knowledge=provenance)
                     analysis_result = analyze_surf_frames(
                         frame_file_paths,
                         original_filename=job.original_filename,
                         job_id=job.id,
                         **({"language": job.analysis_language} if job.analysis_language else {}),
+                        **({"coach_context": coach_context} if coach_context else {}),
                     )
                     result_path = fake_video_analysis(input_path)
                     jm.update_job(

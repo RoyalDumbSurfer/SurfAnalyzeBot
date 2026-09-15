@@ -25,6 +25,9 @@ def test_mobile_saved_summary_and_viewport_modal(reviewer, completed, tmp_path):
         cv2.imwrite(str(frames / f'frame_{i:02}.jpg'), image)
     data = payload(general_comment='Saved comment without field corrections', frame_notes=[{'frame_index':8,'note':'Frame eight'}, {'frame_index':12,'note':'Frame twelve'}])
     assert reviewer.post(endpoint(completed), json=data).status_code == 200
+    main.job_manager.update_job(completed.id, coach_knowledge={'examples': [{
+        'review_id': 42, 'job_id': '11111111-2222-3333-4444-555555555555', 'revision': 1,
+        'tags': ['gaze', 'weight_transfer'], 'reason': 'background_only_no_visual_match'}]})
     async def local_http_app(scope, receive, send):
         async def local_send(message):
             if message['type'] == 'http.response.start':

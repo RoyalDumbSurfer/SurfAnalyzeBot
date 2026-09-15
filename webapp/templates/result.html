@@ -4,6 +4,17 @@
 
 {% block content %}
 
+{% if can_review and job.coach_knowledge %}
+<details class="glass border border-gray-800 p-4 rounded-2xl mb-6" id="coach-knowledge-used">
+    <summary>{{ t("Coach knowledge used") }}: {{ job.coach_knowledge.examples|length }}</summary>
+    <ul class="mt-2 text-sm text-gray-300 break-words">
+    {% for example in job.coach_knowledge.examples %}
+        <li>{{ t("Review") }} #{{ example.review_id }} · {{ example.job_id }} · r{{ example.revision }} · {{ example.tags|join(', ') }}{% if example.reason == 'background_only_no_visual_match' %} · {{ t("Background guidance") }}{% endif %}</li>
+    {% endfor %}
+    </ul>
+</details>
+{% endif %}
+
 <div class="text-center mb-12">
     <h2 class="text-4xl font-bold bg-gradient-to-r from-accent to-accent2 bg-clip-text text-transparent">
         {{ t("Analysis Complete") }}
