@@ -1,4 +1,5 @@
 import json
+from datetime import datetime, timedelta, timezone
 import subprocess
 import sys
 from unittest.mock import MagicMock
@@ -196,3 +197,100 @@ def test_matched_example_count_cap(knowledge):
     context, metadata = build_coach_context(expert_examples(database), 'gaze')
     assert len(metadata['examples']) == 4
     assert len(context.encode()) <= MAX_CONTEXT_BYTES
+
+
+def test_production_reviews_recent_overlapping_and_untagged(knowledge):
+    database, save = knowledge
+    texts = [
+        'Balance direction gaze takeoff weight: first historical lesson.',
+        'Balance direction gaze stance weight: another historical lesson.',
+        'Weight: release the rear rail earlier.',
+        'Stance weight: narrow the distance between your boots.',
+        'Takeoff weight: finish rising before loading the rail.',
+        'Keep your torso quiet while the board passes beneath you.',
+    ]
+    reviews = [save(text) for text in texts]
+    # Production #6 contains only a general comment; #5 also has frame advice.
+    with database.connect(write=True) as db:
+        for index, review in enumerate(reviews):
+            timestamp = (datetime(2026, 9, 20, tzinfo=timezone.utc) + timedelta(minutes=index)).isoformat()
+            db.execute('UPDATE coach_reviews SET updated_at=? WHERE id=?', (timestamp, review['id']))
+        db.execute('UPDATE coach_reviews SET corrected_analysis=?,general_comment=? WHERE id=?',
+                   (json.dumps({k: None for k in FIELDS}), texts[5], reviews[5]['id']))
+        db.execute('INSERT INTO coach_frame_notes(review_id,frame_index,note,created_at,updated_at) VALUES (?,?,?,?,?)',
+                   (reviews[4]['id'], 1, 'Do not load the rear rail yet.', timestamp, timestamp))
+    examples = expert_examples(database)
+    assert [e['review_id'] for e in examples] == [r['id'] for r in reviews]
+    assert examples[-1]['tags'] == []
+    target = reviews[2]['job_id']
+    context, metadata = build_coach_context(examples, '04a3a1e5-e9a1-49ad-bc16-6825a617e23c.mp4',
+                                            job_id=target, language='en')
+    ids = [e['review_id'] for e in metadata['examples']]
+    assert ids[:2] == [reviews[5]['id'], reviews[4]['id']]
+    assert reviews[2]['id'] not in ids  # Never teach a job from its own review.
+    assert len(ids) == 3
+    assert texts[5] in context and texts[4] in context
+    assert 'Do not load the rear rail yet.' in context
+    assert 'Historical AI main_issue' in context
+    assert metadata['query_tags'] == []
+    assert metadata['version'] == 2
+    assert metadata['examples'][2]['selection_basis'] == 'job_rotation'
+    assert len(context.encode('utf-8')) <= MAX_CONTEXT_BYTES
+    assert build_coach_context(list(reversed(examples)), 'ordinary.mp4', job_id=target, language='en') == (context, metadata)
+    # Across different uploads, all older distinct lessons have an opportunity.
+    observed = set()
+    for index in range(100):
+        _, meta = build_coach_context(examples, job_id=f'upload-{index}', language='en')
+        observed.update(e['review_id'] for e in meta['examples'])
+    assert observed == {r['id'] for r in reviews}
+
+
+def test_untagged_approval_and_empty_reviews(knowledge):
+    database, save = knowledge
+    admin = save('Keep your torso quiet.')
+    coach = save('Let the board pass underneath you.', owner=2)
+    save('Still a private draft.', status='draft')
+    save('')
+    assert [e['review_id'] for e in expert_examples(database)] == [admin['id']]
+    set_eligibility(database, coach['id'], 1, True)
+    assert {e['review_id'] for e in expert_examples(database)} == {admin['id'], coach['id']}
+    set_eligibility(database, coach['id'], 1, False)
+    assert [e['review_id'] for e in expert_examples(database)] == [admin['id']]
+
+
+def test_duplicate_lessons_and_overlapping_distinct_content(knowledge):
+    database, save = knowledge
+    old = save('Stance: stay low.')
+    distinct = save('Stance: do not stay low throughout the entire ride.')
+    new = save('Stance: stay low.')
+    examples = expert_examples(database)
+    for query in ('', 'stance'):
+        context, meta = build_coach_context(examples, query, job_id='new-upload')
+        ids = [e['review_id'] for e in meta['examples']]
+        assert ids == [new['id'], distinct['id']]
+        assert old['id'] not in ids
+        assert 'do not stay low' in context
+
+
+def test_recency_uses_updated_time_and_timezone_not_id(knowledge):
+    database, save = knowledge
+    edited = save('Gaze: follow the exit.')
+    newer_id = save('Gaze: keep your chin level.')
+    examples = expert_examples(database)
+    examples[0]['updated_at'] = '2026-09-21T09:00:00+08:00'
+    examples[1]['updated_at'] = '2026-09-21T00:30:00+00:00'
+    for query in ('', 'gaze'):
+        _, meta = build_coach_context(examples, query)
+        assert [e['review_id'] for e in meta['examples']] == [edited['id'], newer_id['id']]
+
+
+def test_oversized_recent_review_does_not_block_smaller_knowledge(knowledge):
+    database, save = knowledge
+    old = save('Gaze: follow the exit.')
+    save('An untagged lesson.')
+    examples = expert_examples(database)
+    examples[-1]['general_comment'] = 'Do not truncate this instruction. ' * 1000
+    context, meta = build_coach_context(examples, job_id='new-upload')
+    assert [e['review_id'] for e in meta['examples']] == [old['id']]
+    assert len(context.encode()) <= MAX_CONTEXT_BYTES
+    assert build_coach_context(examples, max_bytes=1)[0] == ''

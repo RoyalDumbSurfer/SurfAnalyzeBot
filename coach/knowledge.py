@@ -3,12 +3,14 @@ import hashlib
 import json
 import re
 import unicodedata
+from datetime import datetime, timezone
 
 from coach.store import FIELDS, decode
 
-VERSION = 1
+VERSION = 2
 MAX_CONTEXT_BYTES = 12000
 MAX_EXAMPLES = 4
+MAX_BACKGROUND_EXAMPLES = 3
 CONCEPTS = {
     'gaze': ('gaze', 'head position', 'look down', 'looking down', 'head up', 'взгляд', 'смотр', 'голов'),
     'takeoff': ('take off', 'takeoff', 'pop up', 'popup', 'тейк', 'поп ап', 'вставан'),
@@ -80,7 +82,7 @@ def expert_examples(database):
                 corrections = {k: v for k, v in review['corrections'].items() if k in FIELDS and isinstance(v, str) and v.strip() and v != review['original_analysis'].get(k)}
                 text = ' '.join([*corrections.values(), review['general_comment'], *[n['note'] for n in review['frame_notes']]])
                 tags = concepts(text)
-                if not tags:
+                if not text.strip():
                     continue
                 examples.append({
                     'review_id': review['id'], 'job_id': review['job_id'], 'revision': review['revision'],
@@ -107,6 +109,31 @@ Retrieval hints are unverified metadata, not visual evidence. If background exam
 """
 
 
+def coaching_fingerprint(example):
+    """Deduplicate repeated lessons, never merely shared topic tags.
+
+    Ignore historical AI wording and frame numbers when comparing expert text.
+    The original, complete example is still used in the provider context.
+    """
+    def normalized(text):
+        return ' '.join(unicodedata.normalize('NFKC', text).split())
+
+    content = {
+        'corrections': {k: normalized(v) for k, v in example['corrections'].items()},
+        'general_comment': normalized(example['general_comment']),
+        'notes': sorted(normalized(n['note']) for n in example['frame_notes']),
+    }
+    return hashlib.sha256(json.dumps(content, ensure_ascii=False, sort_keys=True).encode('utf-8')).hexdigest()
+
+
+def review_recency(example):
+    try:
+        value = datetime.fromisoformat(example['updated_at'])
+        return value.replace(tzinfo=value.tzinfo or timezone.utc).timestamp()
+    except (KeyError, TypeError, ValueError, OverflowError):
+        return 0
+
+
 def build_coach_context(examples, query='', *, job_id=None, language=None, max_bytes=MAX_CONTEXT_BYTES):
     """Return provider-neutral context and safe provenance, including exact hashes.
 
@@ -122,13 +149,22 @@ def build_coach_context(examples, query='', *, job_id=None, language=None, max_b
             continue
         score = len(overlap) * 100 / len(set(tags) | set(example['tags'])) if tags else 0
         ranked.append((score, example['language'] == language, example['review_id'], overlap, example))
-    ranked.sort(key=lambda r: (-r[0], -r[1], r[2]))
+    ranked.sort(key=lambda r: (-r[0], -r[1], -review_recency(r[4]), -r[2]))
     context = ''
     selected = []
-    covered = set()
+    seen_content = set()
     limit = max(0, min(max_bytes, MAX_CONTEXT_BYTES))
-    for score, _, _, overlap, example in ranked:
-        if not tags and set(example['tags']).issubset(covered):
+    exploring = False
+    while ranked:
+        # Two recent examples, then one reproducibly varied example per job.
+        # No wall clock, random state, database writes, or extra provider call.
+        if not tags and len(selected) == 2 and job_id and not exploring:
+            ranked.sort(key=lambda r: (
+                hashlib.sha256(f'{job_id}:{r[2]}'.encode('utf-8')).hexdigest(), r[2]))
+            exploring = True
+        score, _, _, overlap, example = ranked.pop(0)
+        fingerprint = coaching_fingerprint(example)
+        if fingerprint in seen_content:
             continue
         record = {
             'retrieval_mode': 'concept_match' if tags else 'background_only_no_visual_match',
@@ -142,13 +178,14 @@ def build_coach_context(examples, query='', *, job_id=None, language=None, max_b
         if len(candidate.encode('utf-8')) > limit:
             continue  # Keep complete examples; never truncate a negation/correction.
         context = candidate
-        covered.update(example['tags'])
+        seen_content.add(fingerprint)
         selected.append({'review_id': example['review_id'], 'job_id': example['job_id'],
                          'revision': example['revision'], 'tags': example['tags'],
                          'matched_tags': overlap, 'score': round(score, 2),
                          'reason': 'concept_overlap' if tags else 'background_only_no_visual_match',
+                         'selection_basis': 'concept_rank' if tags else 'job_rotation' if exploring else 'recent',
                          'example_sha256': hashlib.sha256(encoded.encode('utf-8')).hexdigest()})
-        if len(selected) == (MAX_EXAMPLES if tags else 3):
+        if len(selected) == (MAX_EXAMPLES if tags else MAX_BACKGROUND_EXAMPLES):
             break
     size = len(context.encode('utf-8'))
     return context, {'version': VERSION, 'query_tags': tags, 'examples': selected,

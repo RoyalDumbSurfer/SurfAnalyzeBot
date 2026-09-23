@@ -12,6 +12,7 @@ import tarfile
 parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument('--old', required=True)
 parser.add_argument('--target', required=True)
+parser.add_argument('--target-ref', default='origin/main')
 parser.add_argument('--apply', action='store_true')
 args = parser.parse_args()
 root = Path('/opt/SurfAnalyzeBot')
@@ -63,10 +64,12 @@ print(json.dumps({'preflight': 'ok', 'counts': {k: v['count'] for k, v in before
 if not args.apply:
     raise SystemExit(0)
 run('git', 'fetch', 'origin')
-assert run('git', 'rev-parse', 'origin/main') == args.target
+assert args.target_ref.startswith('origin/'), 'Expected a remote tracking branch'
+assert run('git', 'rev-parse', args.target_ref) == args.target
 subprocess.check_call(['git', 'merge-base', '--is-ancestor', args.old, args.target])
 backup = Path('/root') / ('surfanalyze-intelligence-backup-' + datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ'))
 backup.mkdir(mode=0o700)
+deployed = False
 try:
     subprocess.check_call(['systemctl', 'stop', 'surfanalyze-web'])
     snapshot()  # Refuse to interrupt any active/queued analysis.
@@ -79,12 +82,37 @@ try:
         for name in before['media']:
             archive.add(root / name, arcname=name, recursive=False)
     (backup / 'manifest.json').write_text(json.dumps(before, sort_keys=True), encoding='utf-8')
-    print('Backup complete: ' + str(backup), flush=True)
-    subprocess.check_call(['git', 'merge', '--ff-only', args.target])
+    # Verify the backup itself before changing code, not just the live source.
+    with sqlite3.connect((backup / 'database.sqlite3').as_uri() + '?mode=ro', uri=True) as saved:
+        assert saved.execute('PRAGMA integrity_check').fetchone()[0] == 'ok'
+        assert not saved.execute('PRAGMA foreign_key_check').fetchall()
+        tables = [r[0] for r in saved.execute("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name")]
+        assert set(tables) == set(before['tables'])
+        for table in tables:
+            rows = saved.execute('SELECT * FROM "' + table.replace('"', '""') + '" ORDER BY 1').fetchall()
+            assert {'count': len(rows), 'sha256': hashlib.sha256(json.dumps(rows, sort_keys=True).encode()).hexdigest()} == before['tables'][table]
+    with tarfile.open(backup / 'media.tar', 'r') as archive:
+        assert set(archive.getnames()) == set(before['media'])
+        for member in archive.getmembers():
+            digest = hashlib.sha256()
+            with archive.extractfile(member) as source:
+                for chunk in iter(lambda: source.read(1024 * 1024), b''):
+                    digest.update(chunk)
+            assert digest.hexdigest() == before['media'][member.name]
+    print('Backup verified: ' + str(backup), flush=True)
+    # Deploy the reviewed commit without merging a feature branch into main.
+    subprocess.check_call(['git', 'switch', '--detach', args.target])
+    deployed = True
     assert run('git', 'rev-parse', 'HEAD') == args.target
     assert snapshot() == before, 'Persistent data changed during code rollout'
     subprocess.check_call([str(root / '.venv/bin/python'), 'scripts/intelligence_audit.py'], env={**os.environ, 'PYTHONPATH': str(root)})
     print('Persistent table and media fingerprints unchanged.', flush=True)
+except BaseException:
+    if deployed:
+        # Restore only code; never overwrite live data with a backup automatically.
+        subprocess.check_call(['git', 'switch', '--detach', args.old])
+        print('Post-deployment check failed; restored previous code.', flush=True)
+    raise
 finally:
     subprocess.check_call(['systemctl', 'start', 'surfanalyze-worker', 'surfanalyze-web'])
 print(run('systemctl', 'is-active', 'surfanalyze-web', 'surfanalyze-worker'), flush=True)
