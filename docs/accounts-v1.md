@@ -45,7 +45,7 @@ No production migration is automatic. Do not run old and new web/worker versions
 2. Pause new uploads and let queued/processing jobs finish under the old worker. Stop the old web app, worker, and any bot process writing jobs. Do not import while the old JSON writer is active.
 3. After code approval, install the new code. Keep the existing application working directory so all saved relative media paths still resolve. Do not change media paths as part of this migration.
 4. Configure `DATABASE_PATH` to an absolute persistent local SQLite filename shared by the web app/worker/CLI. Default: `data/surfanalyze.sqlite3`. Restrict the database directory, SQLite/WAL files, and backups to the service account. Do not expose it through nginx or place it on a network filesystem.
-5. Configure `SESSION_SECRET` to a strong random secret of at least 32 characters, identical across web processes/restarts. Keep `SESSION_COOKIE_SECURE=true` for HTTPS. Keep `MAX_FILE_SIZE=52428800` (50 MiB) and existing API/OpenAI settings. Remove the obsolete `PRIVATE_BETA_ACCESS_CODE` when convenient. No credentials are seeded automatically.
+5. Configure `SESSION_SECRET` to a strong random secret of at least 32 characters, identical across web processes/restarts. Keep `SESSION_COOKIE_SECURE=true` for HTTPS. Keep `MAX_FILE_SIZE=104857600` (100 MiB) and existing API/OpenAI settings. Remove the obsolete `PRIVATE_BETA_ACCESS_CODE` when convenient. No credentials are seeded automatically.
 6. Create the first admin in the new SQLite store (password entered twice through hidden prompts):
 
    ```text
@@ -70,7 +70,7 @@ No production migration is automatic. Do not run old and new web/worker versions
    ```
 
    Store/share the code privately; stdout reports only the invite ID. Default max uses is one; `--unlimited` allows unlimited uses. Disable an invite with `python -m accounts.cli disable-invite --id INVITE_ID`.
-9. Verify nginx forwards all application and media URLs, including `/frames/*`, `/uploads/*`, `/download/*`, through FastAPI. Direct aliases/CDN caches bypass ownership and must not expose these resources. Keep HTTPS and trusted proxy scheme/Host/client-IP forwarding correct. Maintain `client_max_body_size` at least 51 MiB for the default upload limit. No server config is changed by this implementation.
+9. Verify nginx forwards all application and media URLs, including `/frames/*`, `/uploads/*`, `/download/*`, through FastAPI. Direct aliases/CDN caches bypass ownership and must not expose these resources. Keep HTTPS and trusted proxy scheme/Host/client-IP forwarding correct. Maintain `client_max_body_size` at least 101 MiB for the default upload limit. No server config is changed by this implementation.
 10. Start the new worker and web app using the same database and working directory. Log in as the owner, verify the imported job count/history and older results/frames/downloads, register a second account, and verify it has empty history and cannot access an owner's known URLs. Upload one real surf clip and verify processing, feedback, 15-frame target, Frame Viewer, retry, logout, and session persistence on mobile.
 
 ## Rollback and data impact

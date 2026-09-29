@@ -13,7 +13,7 @@ Configure these on the web application before sharing the demo; do not commit se
 | `PRIVATE_BETA_ACCESS_CODE` | unset | A nonempty value enables the gate. Use a long, randomly generated invitation code. Unset or empty disables it. |
 | `SESSION_SECRET` | unset | Set an independent random secret of at least 32 characters. Required when the gate is enabled; startup fails otherwise. Use the same value across web processes/restarts. |
 | `SESSION_COOKIE_SECURE` | `true` | Secure cookies for production HTTPS. Set `false` only for local HTTP testing. |
-| `MAX_FILE_SIZE` | `52428800` | Existing byte limit, now enforced by web uploads and shown on the upload page (default 50 MiB). Must be positive. |
+| `MAX_FILE_SIZE` | `104857600` | Existing byte limit, now enforced by web uploads and shown on the upload page (default 100 MiB). Must be positive. |
 
 Sessions use the existing Starlette signed-cookie middleware, with HttpOnly, SameSite=Lax, Secure by default, and a seven-day rolling lifetime. Cookies contain a signed authorization marker, never the access code. Changing either the access code or signing secret invalidates beta access. Without a configured signing secret when beta is disabled, sessions use a random process-local key and do not survive restarts or work reliably across multiple web processes. Existing sessions using the old hardcoded key/cookie will be replaced.
 
@@ -31,7 +31,7 @@ The only gate exception is `/beta` (GET/POST). Protection covers `/`, `/upload`,
 
 ## Deployment checks before sharing
 
-No nginx configuration is version-controlled here, and the live server configuration was not inspected or changed. The actual proxy limit is therefore unknown. Check `client_max_body_size`: it must allow at least `MAX_FILE_SIZE + 1048576` bytes of multipart data (51 MiB for the default limit). A lower proxy limit will reject requests before FastAPI can show its styled error. A larger proxy limit lets the application enforce its own cap. Review any proxy 413 error page separately.
+No nginx configuration is version-controlled here, and the live server configuration was not inspected or changed. The actual proxy limit is therefore unknown. Check `client_max_body_size`: it must allow at least `MAX_FILE_SIZE + 1048576` bytes of multipart data (101 MiB for the default limit). A lower proxy limit will reject requests before FastAPI can show its styled error. A larger proxy limit lets the application enforce its own cap. Review any proxy 413 error page separately.
 
 Ensure nginx/CDN routes `/uploads/*`, `/frames/*`, `/download/*` and all application routes through FastAPI. Direct nginx aliases or public object storage for those files would bypass application middleware; remove that bypass or apply equivalent access checks before sharing. Do not cache protected responses. Keep HTTPS enabled and the existing job worker running.
 

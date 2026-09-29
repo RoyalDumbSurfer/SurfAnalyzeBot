@@ -43,7 +43,7 @@ def app_state(monkeypatch, tmp_path, password_hash):
                        (name, password_hash, datetime.now(timezone.utc).isoformat()))
     monkeypatch.setattr(main, "account_store", store)
     monkeypatch.setattr(main, "job_manager", JobManager(path))
-    monkeypatch.setattr(main.settings, "MAX_FILE_SIZE", 50 * 1024 * 1024)
+    monkeypatch.setattr(main.settings, "MAX_FILE_SIZE", 100 * 1024 * 1024)
     monkeypatch.setattr(main.settings, "DATABASE_PATH", str(path))
     for attribute, folder in (("UPLOAD_DIR", "uploads"), ("EXTRACTED_FRAMES_DIR", "frames")):
         directory = tmp_path / folder

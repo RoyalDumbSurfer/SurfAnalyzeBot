@@ -80,7 +80,7 @@ Required configuration:
 - `DATABASE_PATH`: an absolute local persistent SQLite filename shared by web, worker, and CLI. Its parent directory must be writable only by the service account/administrators. Do not use a network filesystem or public nginx directory.
 - `SESSION_SECRET`: the existing strong secret, or a securely provisioned secret of at least 32 characters; identical across web processes. Never put its value into a command argument or this runbook.
 - `SESSION_COOKIE_SECURE=true` for production HTTPS.
-- `MAX_FILE_SIZE=52428800` for 50 MiB.
+- `MAX_FILE_SIZE=104857600` for 100 MiB.
 - Retain existing Telegram/OpenAI configuration. The obsolete `PRIVATE_BETA_ACCESS_CODE` does not grant account access and may be removed.
 
 Ensure service environment overrides do not point web, worker, and CLI at different databases. Runtime web/worker opens never create a missing SQLite file. They refuse an unimported legacy JSON or a legacy file whose fingerprint changed after import. Do not remove the JSON to bypass these checks.
@@ -112,7 +112,7 @@ Paste a securely generated invitation through hidden prompts. The CLI prints onl
 
 ## 6. Start services and smoke-test while access is controlled
 
-Confirm nginx routes `/frames/*`, `/uploads/*`, `/download/*`, and application routes through FastAPI; direct file aliases would bypass ownership. Protected responses must not be cached. Verify HTTPS, trusted proxy scheme/Host/client IP handling, and a request limit of at least 51 MiB.
+Confirm nginx routes `/frames/*`, `/uploads/*`, `/download/*`, and application routes through FastAPI; direct file aliases would bypass ownership. Protected responses must not be cached. Verify HTTPS, trusted proxy scheme/Host/client IP handling, and a request limit of at least 101 MiB.
 
 ```bash
 sudo systemctl start "$WORKER_UNIT" "$WEB_UNIT"

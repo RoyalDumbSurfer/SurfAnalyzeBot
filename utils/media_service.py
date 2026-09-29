@@ -16,7 +16,7 @@ def save_media_file(bot: TeleBot, message: Message, file_info, media_type: str):
 
     # Проверка размера файла
     if file_info.file_size > settings.MAX_FILE_SIZE:
-        return None, "❌ Файл слишком большой! Лимит: 50 МБ."
+        return None, f"❌ Файл слишком большой! Лимит: {settings.MAX_FILE_SIZE / (1024 * 1024):g} MiB."
 
     # Генерация имени файла
     timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")

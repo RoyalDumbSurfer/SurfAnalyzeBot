@@ -42,7 +42,8 @@ def test_save_file_too_large(tmp_path, fake_bot, fake_message):
 
     filename, error = save_media_file(fake_bot, fake_message, file_info, "photo")
     assert filename is None
-    assert error == "❌ Файл слишком большой! Лимит: 50 МБ."
+    assert error == f"❌ Файл слишком большой! Лимит: {settings.MAX_FILE_SIZE / (1024 * 1024):g} MiB."
+    fake_bot.download_file.assert_not_called()
 
 
 def test_save_file_invalid_path(tmp_path, fake_bot, fake_message):

@@ -251,6 +251,37 @@ def test_exact_size_boundary_is_accepted(client, video_bytes, monkeypatch):
     assert client.post("/upload", files={"file": ("ride.avi", video_bytes, "video/x-msvideo")}).status_code == 303
 
 
+@pytest.mark.parametrize("extra,status", [(-1, 303), (0, 303), (1, 413)])
+def test_100_mib_boundary(client, video_bytes, tmp_path, extra, status):
+    limit = 100 * 1024 * 1024
+    assert main.settings.MAX_FILE_SIZE == limit
+    path = tmp_path / "boundary.avi"
+    with path.open("wb") as video:
+        video.write(video_bytes)
+        video.truncate(limit + extra)
+    with path.open("rb") as video:
+        response = client.post("/upload", files={"file": (path.name, video, "video/x-msvideo")})
+    assert response.status_code == status
+    if status == 303:
+        job = main.job_manager.list_jobs()[0]
+        assert Path(job.file_path).stat().st_size == limit + extra
+    else:
+        assert "Video is too large" in response.text
+        assert not main.job_manager.list_jobs()
+        assert not list(main.UPLOAD_DIR.iterdir())
+
+
+@pytest.mark.parametrize("selected_language", ["ru", "en"])
+def test_100_mib_copy(client, selected_language):
+    from config import Settings
+    assert Settings.model_fields["MAX_FILE_SIZE"].default == 100 * 1024 * 1024
+    client.cookies.set("surfanalyze_language", selected_language)
+    page = client.get("/").text
+    assert "100 MiB" in page
+    assert "50 MiB" not in page
+    assert "104857600" in page
+
+
 def test_invalid_filename_never_reaches_filesystem(client):
     response = client.post("/upload", files={"file": ("ride.mp4\x00", b"bad", "video/mp4")})
     assert response.status_code == 400

@@ -2,7 +2,7 @@
 
 See docs/production-smoke.md. Password is entered only in a real TTY.
 """
-import io
+import tempfile
 import argparse
 import json
 import os
@@ -115,16 +115,20 @@ try:
         for selected in ('en', 'ru'):
             assert post(other, '/language', {'selected': selected, 'return_to': '/dashboard'}).status_code == 303
             assert f'<html lang="{selected}">' in other.get('/dashboard').text
-            assert f'<html lang="{selected}">' in other.get('/').text
+            upload_page = other.get('/').text
+            assert f'<html lang="{selected}">' in upload_page
+            assert '100 MiB' in upload_page and '104857600' in upload_page
         mark('ru_en_switch_persistence')
         invalid = post(other, '/upload', files={'file': ('bad.txt', b'not video', 'text/plain')})
         assert invalid.status_code == 400
-        oversized = post(other, '/upload', files={'file': ('large.mp4', io.BytesIO(b'0' * (52428800 + 1)), 'video/mp4')})
+        with tempfile.TemporaryFile() as large_video:
+            large_video.truncate(104857600 + 1)
+            oversized = post(other, '/upload', files={'file': ('large.mp4', large_video, 'video/mp4')})
         assert oversized.status_code == 413
         assert not manager.list_jobs(owner_user_id=test_id)
-        mark('invalid_and_over_50_mib_rejected')
+        mark('invalid_and_over_100_mib_rejected')
         # Reuse a backed-up real surf clip; never alter or move the original.
-        candidates = [j for j in jobs if Path(j.file_path).is_file() and Path(j.file_path).suffix.lower() == '.mp4' and Path(j.file_path).stat().st_size <= 52428800]
+        candidates = [j for j in jobs if Path(j.file_path).is_file() and Path(j.file_path).suffix.lower() == '.mp4' and Path(j.file_path).stat().st_size <= 104857600]
         source = min(candidates, key=lambda j: Path(j.file_path).stat().st_size)
         with Path(source.file_path).open('rb') as video:
             response = post(other, '/upload', files={'file': ('deployment-surf-smoke.mp4', video, 'video/mp4')})

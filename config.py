@@ -6,7 +6,7 @@ import os
 
 class Settings(BaseSettings):
     API_TOKEN: str = Field(..., min_length=10, description="Telegram Bot API Token")
-    MAX_FILE_SIZE: int = Field(default=50 * 1024 * 1024, gt=0, description="Maximum file size in bytes")
+    MAX_FILE_SIZE: int = Field(default=100 * 1024 * 1024, gt=0, description="Maximum file size in bytes")
     PRIVATE_BETA_ACCESS_CODE: str | None = Field(default=None, repr=False)
     SESSION_SECRET: str | None = Field(default=None, repr=False)
     SESSION_COOKIE_SECURE: bool = True

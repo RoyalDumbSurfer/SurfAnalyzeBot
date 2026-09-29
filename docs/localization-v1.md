@@ -8,6 +8,6 @@ The POST `/language` endpoint validates CSRF and Origin, bounds the request body
 
 New uploads save `analysis_language` inside the existing SQLite job payload. No SQL schema migration is needed. The worker passes the saved language to the provider, which requests Russian/English values while preserving all six JSON field names and the existing schema. Sampling is unchanged. Existing jobs and already-generated analysis remain in their original language; switching the interface does not rerun paid analysis.
 
-Deployment of accounts follows [the migration runbook](accounts-migration-runbook.md). No new environment variables are needed for localization. Keep the existing OpenAI configuration, 50 MiB application limit, and secure session settings.
+Deployment of accounts follows [the migration runbook](accounts-migration-runbook.md). No new environment variables are needed for localization. Keep the existing OpenAI configuration, 100 MiB application limit, and secure session settings.
 
 Validation includes RU/EN pages and rendered JavaScript syntax, preference persistence across login/logout, CSRF/Origin/redirect checks, saved job language, real frame extraction with provider mocked, and provider schema/language assertions. Production acceptance additionally requires real HTTPS login and upload through the running worker/OpenAI service.

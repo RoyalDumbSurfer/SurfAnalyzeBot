@@ -21,7 +21,7 @@ Use a real TTY for the hidden owner password prompt. The report path must be new
 and its parent directory must exist. Do not use Python optimization (`-O`), which
 disables assertions. Run only against a deployment whose local database and media
 correspond to the supplied HTTPS origin. The script expects the migrated
-`jobs_db.json`, Russian default UI, a 50 MiB upload limit, accessible completed
+`jobs_db.json`, Russian default UI, a 100 MiB upload limit, accessible completed
 owner jobs, and at least one real MP4 small enough to upload.
 
 This is a **mutating acceptance test**, not a health probe. It creates an invite,
