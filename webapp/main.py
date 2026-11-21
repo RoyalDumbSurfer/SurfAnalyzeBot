@@ -560,7 +560,7 @@ async def generate_director_preview(request: Request, job_id: str):
     for url in job.extracted_frame_paths:
         filename = Path(url).name
         if (url != f"/frames/{job_id}/{filename}"
-                or not re.fullmatch(r"frame_[0-9]{2}\\.jpg", filename)):
+                or not re.fullmatch(r"frame_[0-9]{2}\.jpg", filename)):
             raise HTTPException(status_code=404, detail="Coaching frame not found")
         frames.append(private_file(EXTRACTED_FRAMES_DIR / job_id / filename, EXTRACTED_FRAMES_DIR))
 
