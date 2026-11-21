@@ -161,5 +161,16 @@
   "Remove the note from this frame?": "Удалить комментарий к этому кадру?",
   "Remove the cleared frame notes?": "Удалить очищенные комментарии к кадрам?",
   "Edit Coach Review": "Редактировать разбор тренера",
-  "Frame notes: {count}": "Комментариев к кадрам: {count}"
+  "Frame notes: {count}": "Комментариев к кадрам: {count}",
+  "Video Coach Preview": "Предпросмотр видеоразбора",
+  "Frame-anchored AI draft. The source video stays unchanged.": "Черновик ИИ с привязкой к кадрам. Исходное видео не изменяется.",
+  "Generate coaching timeline": "Создать сценарий видеоразбора",
+  "Original surfing video": "Исходное видео сёрфера",
+  "Continue video": "Продолжить видео",
+  "Experimental preview: arrows appear only on sampled freeze frames. MP4 export is not available yet.": "Тестовый просмотр: стрелки появляются только на выбранных стоп-кадрах. Экспорт MP4 пока недоступен.",
+  "Play to see coaching pauses on selected frames.": "Запустите видео: оно остановится на выбранных кадрах с подсказками.",
+  "AI found no reliable frame-specific cues. You can still watch the original video.": "ИИ не нашёл достаточно надёжных подсказок для конкретных кадров. Исходное видео можно посмотреть.",
+  "Generating a coaching timeline...": "Готовим сценарий видеоразбора…",
+  "Could not prepare the preview. Please try again.": "Не удалось создать предпросмотр. Попробуйте ещё раз.",
+  "Coaching moments:": "Ключевых моментов:"
 }
