@@ -172,5 +172,7 @@
   "AI found no reliable frame-specific cues. You can still watch the original video.": "ИИ не нашёл достаточно надёжных подсказок для конкретных кадров. Исходное видео можно посмотреть.",
   "Generating a coaching timeline...": "Готовим сценарий видеоразбора…",
   "Could not prepare the preview. Please try again.": "Не удалось создать предпросмотр. Попробуйте ещё раз.",
-  "Coaching moments:": "Ключевых моментов:"
+  "Coaching moments:": "Ключевых моментов:",
+  "This browser cannot play the original format. Download it or upload an H.264 MP4.": "Браузер не поддерживает исходный формат. Скачайте видео или загрузите MP4 с кодеком H.264.",
+  "Download original video": "Скачать исходное видео"
 }
