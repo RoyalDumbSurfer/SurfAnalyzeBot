@@ -1,0 +1,132 @@
+<script>
+(function () {
+    "use strict";
+    const root = document.getElementById("video-director");
+    if (!root) return;
+    const video = document.getElementById("video-director-player");
+    const stage = document.getElementById("video-director-stage");
+    const arrowLayer = document.getElementById("director-arrow-layer");
+    const arrowLine = document.getElementById("director-arrow");
+    const card = document.getElementById("director-cue-card");
+    const title = document.getElementById("director-cue-title");
+    const note = document.getElementById("director-cue-note");
+    const status = document.getElementById("director-status");
+    const continueButton = document.getElementById("director-continue");
+    const generateButton = document.getElementById("director-generate");
+    const messages = {
+        ready: {{ t("Play to see coaching pauses on selected frames.") | tojson }},
+        empty: {{ t("AI found no reliable frame-specific cues. You can still watch the original video.") | tojson }},
+        generate: {{ t("Generating a coaching timeline...") | tojson }},
+        error: {{ t("Could not prepare the preview. Please try again.") | tojson }},
+        count: {{ t("Coaching moments:") | tojson }}
+    };
+    let plan = JSON.parse(document.getElementById("director-existing-plan").textContent);
+    let activeCue = null;
+    let lastTime = 0;
+    const shown = new Set();
+
+    function fitArrowLayer() {
+        if (!video.videoWidth || !video.videoHeight) return;
+        const boxWidth = stage.clientWidth;
+        const boxHeight = stage.clientHeight;
+        const scale = Math.min(boxWidth / video.videoWidth, boxHeight / video.videoHeight);
+        const w = video.videoWidth * scale;
+        const h = video.videoHeight * scale;
+        arrowLayer.style.width = w + "px";
+        arrowLayer.style.height = h + "px";
+        arrowLayer.style.left = (boxWidth - w) / 2 + "px";
+        arrowLayer.style.top = (boxHeight - h) / 2 + "px";
+    }
+
+    function hideCue() {
+        activeCue = null;
+        card.hidden = true;
+        arrowLayer.hidden = true;
+    }
+
+    function cueTime(cue) {
+        return video.duration * (cue.frame_number - 1) / (plan.frame_count - 1);
+    }
+
+    function showCue(cue) {
+        activeCue = cue;
+        title.textContent = cue.title;
+        note.textContent = cue.note;
+        card.hidden = false;
+        if (cue.arrow) {
+            for (const coordinate of ["x1", "y1", "x2", "y2"]) {
+                arrowLine.setAttribute(coordinate, String(cue.arrow[coordinate]));
+            }
+            fitArrowLayer();
+            arrowLayer.hidden = false;
+        } else {
+            arrowLayer.hidden = true;
+        }
+    }
+
+    function updateStatus() {
+        if (!plan) {
+            status.textContent = "";
+            return;
+        }
+        status.textContent = plan.cues.length ? messages.count + " " + plan.cues.length + ". " + messages.ready : messages.empty;
+        if (generateButton) generateButton.hidden = true;
+    }
+
+    if (video) {
+        video.addEventListener("loadedmetadata", fitArrowLayer);
+        window.addEventListener("resize", fitArrowLayer);
+        video.addEventListener("play", hideCue);
+        video.addEventListener("seeking", function () {
+            if (activeCue) return;
+            if (video.currentTime < lastTime - 1) shown.clear();
+            lastTime = video.currentTime;
+        });
+        video.addEventListener("timeupdate", function () {
+            if (!plan || !plan.cues.length || !Number.isFinite(video.duration) ||
+                video.duration <= 0 || video.paused || activeCue) return;
+            lastTime = video.currentTime;
+            const cue = plan.cues.find(function (entry) {
+                const t = cueTime(entry);
+                return !shown.has(entry.frame_number) && video.currentTime >= t &&
+                       video.currentTime < t + 0.8;
+            });
+            if (!cue) return;
+            shown.add(cue.frame_number);
+            video.pause();
+            video.currentTime = cueTime(cue);
+            showCue(cue);
+        });
+    }
+
+    continueButton.addEventListener("click", function () {
+        hideCue();
+        video.play().catch(function () { /* browser retains its native play control */ });
+    });
+
+    if (generateButton) {
+        generateButton.addEventListener("click", async function () {
+            generateButton.disabled = true;
+            status.textContent = messages.generate;
+            try {
+                const response = await fetch(root.dataset.generateUrl, {
+                    method: "POST",
+                    credentials: "same-origin",
+                    headers: {"X-CSRF-Token": root.dataset.csrf}
+                });
+                if (!response.ok) throw new Error("Director HTTP " + response.status);
+                const data = await response.json();
+                if (!data.ok || !data.plan) throw new Error("Invalid director response");
+                plan = data.plan;
+                shown.clear();
+                hideCue();
+                updateStatus();
+            } catch (error) {
+                status.textContent = messages.error;
+                generateButton.disabled = false;
+            }
+        });
+    }
+    updateStatus();
+}());
+</script>
