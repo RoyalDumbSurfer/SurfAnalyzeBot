@@ -22,6 +22,7 @@ jobs:
     timeout-minutes: 15
     env:
       PYTHONPATH: .
+      DATABASE_PATH: /tmp/surfanalyze-ci.sqlite3
       API_TOKEN: dummy_token_for_tests
       SESSION_SECRET: test-only-signing-key-with-at-least-32-characters
       SESSION_COOKIE_SECURE: "false"
@@ -36,5 +37,7 @@ jobs:
         run: pip install -r requirements.txt
       - name: Compile Python modules
         run: python -m compileall -q services jobs webapp tests
+      - name: Bootstrap isolated test database
+        run: python -c "from config import settings; from storage.database import Database; Database(settings.DATABASE_PATH)"
       - name: Run pytest
         run: python -m pytest -q
