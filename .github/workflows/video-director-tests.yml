@@ -1,0 +1,36 @@
+name: Video Director checks
+
+on:
+  pull_request:
+    paths:
+      - "services/video_director.py"
+      - "webapp/**"
+      - "jobs/**"
+      - "tests/**"
+      - ".github/workflows/video-director-tests.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  python-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      API_TOKEN: dummy_token_for_tests
+      SESSION_SECRET: test-only-signing-key-with-at-least-32-characters
+      SESSION_COOKIE_SECURE: "false"
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+      - name: Compile Python modules
+        run: python -m compileall -q services jobs webapp tests
+      - name: Run pytest
+        run: pytest -q
