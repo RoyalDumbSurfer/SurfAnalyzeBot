@@ -1,0 +1,188 @@
+<script>
+(function () {
+    "use strict";
+    const editor = document.getElementById("director-editor");
+    const director = window.SurfAnalyzeVideoDirector;
+    if (!editor || !director) return;
+
+    const list = document.getElementById("director-edit-list");
+    const add = document.getElementById("director-add");
+    const save = document.getElementById("director-save");
+    const status = document.getElementById("director-edit-status");
+    const video = document.getElementById("video-director-player");
+    const root = document.getElementById("video-director");
+    const previous = JSON.parse(document.getElementById("director-existing-review").textContent);
+    let revision = previous && Number.isInteger(previous.revision) ? previous.revision : 0;
+    let edits = [];
+    const labels = {
+        moment: {{ t("Moment") | tojson }},
+        anchor: {{ t("Key frame") | tojson }},
+        title: {{ t("Coaching title") | tojson }},
+        note: {{ t("Coaching instruction") | tojson }},
+        jump: {{ t("Inspect frame") | tojson }},
+        remove: {{ t("Delete moment") | tojson }},
+        arrow: {{ t("Remove AI arrow") | tojson }},
+        saved: {{ t("Coach-reviewed timeline saved.") | tojson }},
+        unsaved: {{ t("Unsaved timeline changes") | tojson }},
+        saving: {{ t("Saving coaching timeline...") | tojson }},
+        problem: {{ t("Could not save the review. Check moment positions, fields, or refresh if another tab edited it.") | tojson }},
+        max: {{ t("Maximum three coaching moments per ride.") | tojson }}
+    };
+
+    function node(tag, className, value) {
+        const el = document.createElement(tag);
+        if (className) el.className = className;
+        if (value !== undefined) el.textContent = value;
+        return el;
+    }
+
+    function copy(value) {
+        return JSON.parse(JSON.stringify(value));
+    }
+
+    function changed() {
+        status.textContent = labels.unsaved;
+    }
+
+    function buildRows() {
+        list.replaceChildren();
+        const plan = director.getPlan();
+        if (!plan) {
+            editor.hidden = true;
+            return;
+        }
+        editor.hidden = false;
+        add.disabled = edits.length >= 3;
+
+        edits.forEach(function (cue, idx) {
+            const wrap = node("div", "border border-gray-700 rounded-xl bg-black/20 p-3 sm:p-4");
+            const header = node("div", "flex items-center justify-between gap-2 mb-3");
+            header.appendChild(node("strong", "text-gray-100", labels.moment + " " + (idx + 1)));
+            const remove = node("button", "text-red-200 underline text-sm min-h-11", labels.remove);
+            remove.type = "button";
+            remove.addEventListener("click", function () {
+                edits.splice(idx, 1);
+                changed();
+                buildRows();
+            });
+            header.appendChild(remove);
+            wrap.appendChild(header);
+
+            const frameLabel = node("label", "block text-sm text-gray-300 mb-2", labels.anchor);
+            const select = node("select", "block w-full rounded-lg border border-gray-600 bg-gray-900 p-3 mt-1 min-h-11");
+            for (let number = 1; number <= plan.frame_count; number++) {
+                const option = node("option", "", String(number));
+                option.value = String(number);
+                select.appendChild(option);
+            }
+            select.value = String(cue.frame_number);
+            select.addEventListener("change", function () {
+                cue.frame_number = Number(select.value);
+                cue.arrow = null; // Existing arrow belongs to the old frame only.
+                changed();
+                buildRows();
+            });
+            frameLabel.appendChild(select);
+            wrap.appendChild(frameLabel);
+
+            const jump = node("button", "text-accent text-sm underline min-h-11 mb-2", labels.jump);
+            jump.type = "button";
+            jump.addEventListener("click", function () {
+                if (Number.isFinite(video.duration) && video.duration > 0) {
+                    video.pause();
+                    video.currentTime = Math.max(0, Math.min(video.duration - 0.05,
+                        video.duration * (cue.frame_number - 1) / (plan.frame_count - 1)));
+                    video.scrollIntoView({behavior: "smooth", block: "center"});
+                }
+            });
+            wrap.appendChild(jump);
+
+            const titleLabel = node("label", "block text-sm text-gray-300 mb-3", labels.title);
+            const titleInput = node("input", "block w-full mt-1 rounded-lg border border-gray-600 bg-gray-900 p-3 min-h-11");
+            titleInput.type = "text";
+            titleInput.maxLength = 70;
+            titleInput.value = cue.title;
+            titleInput.required = true;
+            titleInput.addEventListener("input", function () { cue.title = titleInput.value; changed(); });
+            titleLabel.appendChild(titleInput);
+            wrap.appendChild(titleLabel);
+
+            const noteLabel = node("label", "block text-sm text-gray-300 mb-3", labels.note);
+            const noteInput = node("textarea", "block w-full mt-1 rounded-lg border border-gray-600 bg-gray-900 p-3");
+            noteInput.rows = 3;
+            noteInput.maxLength = 220;
+            noteInput.value = cue.note;
+            noteInput.required = true;
+            noteInput.addEventListener("input", function () { cue.note = noteInput.value; changed(); });
+            noteLabel.appendChild(noteInput);
+            wrap.appendChild(noteLabel);
+
+            if (cue.arrow) {
+                const removeArrow = node("button", "text-amber-200 text-sm underline min-h-11", labels.arrow);
+                removeArrow.type = "button";
+                removeArrow.addEventListener("click", function () {
+                    cue.arrow = null;
+                    changed();
+                    buildRows();
+                });
+                wrap.appendChild(removeArrow);
+            }
+            list.appendChild(wrap);
+        });
+    }
+
+    function loadFromPlan() {
+        const plan = director.getPlan();
+        if (!plan) {
+            editor.hidden = true;
+            return;
+        }
+        edits = copy(plan.cues);
+        buildRows();
+    }
+
+    add.addEventListener("click", function () {
+        const plan = director.getPlan();
+        if (!plan || edits.length >= 3) {
+            status.textContent = labels.max;
+            return;
+        }
+        const used = new Set(edits.map(function (cue) { return cue.frame_number; }));
+        let frame = 1;
+        while (used.has(frame) && frame < plan.frame_count) frame++;
+        if (used.has(frame)) {
+            status.textContent = labels.max;
+            return;
+        }
+        edits.push({frame_number: frame, title: "", note: "", arrow: null});
+        changed();
+        buildRows();
+    });
+
+    save.addEventListener("click", async function () {
+        save.disabled = true;
+        status.textContent = labels.saving;
+        try {
+            const response = await fetch(editor.dataset.saveUrl, {
+                method: "POST",
+                credentials: "same-origin",
+                headers: {"Content-Type": "application/json", "X-CSRF-Token": root.dataset.csrf},
+                body: JSON.stringify({revision: revision, cues: edits})
+            });
+            if (!response.ok) throw new Error("Review HTTP " + response.status);
+            const payload = await response.json();
+            if (!payload.ok || !payload.review || !payload.review.plan) throw new Error("Unexpected review response");
+            revision = payload.review.revision;
+            director.setPlan(payload.review.plan);
+            status.textContent = labels.saved;
+        } catch (error) {
+            status.textContent = labels.problem;
+        } finally {
+            save.disabled = false;
+        }
+    });
+
+    editor.parentElement.addEventListener("surfanalyze-plan-changed", loadFromPlan);
+    loadFromPlan();
+}());
+</script>
