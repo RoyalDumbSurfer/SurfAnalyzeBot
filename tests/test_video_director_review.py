@@ -71,3 +71,38 @@ def test_review_requires_owner_role_csrf(client, app_state):
     with app_state[0].database.connect(write=True) as db:
         db.execute("UPDATE users SET role='user' WHERE username='alice'")
     assert client.post(url, json={"revision": 0, "cues": EDITED}).status_code == 403
+
+
+def test_saved_coach_feedback_takes_priority_for_new_director_plan(client, app_state, monkeypatch):
+    # The plan generator must receive the coach correction, not the earlier AI diagnosis.
+    job = main.job_manager.create_job(
+        user_id=1, owner_user_id=1, file_path=str(main.UPLOAD_DIR / "surf.mp4"),
+        original_filename="surf.mp4",
+    )
+    analysis = {
+        "level": "Intermediate", "main_issue": "AI claim", "why_it_matters": "Why",
+        "how_to_fix": "Fix", "drill": "Drill", "coach_note": "Note",
+    }
+    folder = main.EXTRACTED_FRAMES_DIR / job.id
+    folder.mkdir(parents=True)
+    for n in (1, 2):
+        (folder / f"frame_{n:02d}.jpg").write_bytes(b"frame")
+    main.job_manager.update_job(job.id, status=JobStatus.DONE,
+                                analysis_result=analysis,
+                                extracted_frame_paths=[f"/frames/{job.id}/frame_{n:02d}.jpg" for n in (1, 2)])
+
+    from types import SimpleNamespace
+    monkeypatch.setattr(main, "CoachStore", lambda _path: SimpleNamespace(
+        get=lambda _job, _owner: {
+            "status": "saved",
+            "corrections": {"main_issue": "Coach says the ride is correct"},
+        },
+    ))
+    captured = []
+    monkeypatch.setattr(main, "generate_video_plan", lambda frames, result: (
+        captured.append(result.copy()) or ORIGINAL
+    ))
+    response = client.post(f"/api/video-director/{job.id}")
+    assert response.status_code == 200, response.text
+    assert captured[0]["main_issue"] == "Coach says the ride is correct"
+    assert captured[0]["why_it_matters"] == "Why"
