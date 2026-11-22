@@ -174,5 +174,21 @@
   "Could not prepare the preview. Please try again.": "Не удалось создать предпросмотр. Попробуйте ещё раз.",
   "Coaching moments:": "Ключевых моментов:",
   "This browser cannot play the original format. Download it or upload an H.264 MP4.": "Браузер не поддерживает исходный формат. Скачайте видео или загрузите MP4 с кодеком H.264.",
-  "Download original video": "Скачать исходное видео"
+  "Download original video": "Скачать исходное видео",
+  "Review coaching moments": "Проверка ключевых моментов",
+  "Correct the AI notes and frame anchors. Changes are private until saved. Original video and AI suggestions remain unchanged.": "Исправьте подсказки и привязку к кадрам. Изменения сохраняются только по кнопке. Оригинал и исходный AI-сценарий не меняются.",
+  "Add moment": "Добавить момент",
+  "Save reviewed timeline": "Сохранить проверенный сценарий",
+  "Moment": "Момент",
+  "Key frame": "Ключевой кадр",
+  "Coaching title": "Название подсказки",
+  "Coaching instruction": "Комментарий тренера",
+  "Inspect frame": "Посмотреть кадр",
+  "Delete moment": "Удалить момент",
+  "Remove AI arrow": "Убрать AI-стрелку",
+  "Coach-reviewed timeline saved.": "Сценарий с корректировками тренера сохранён.",
+  "Unsaved timeline changes": "Есть несохранённые изменения сценария.",
+  "Saving coaching timeline...": "Сохраняем сценарий разбора…",
+  "Could not save the review. Check moment positions, fields, or refresh if another tab edited it.": "Не удалось сохранить: проверьте кадры и текст. Если сценарий изменён в другой вкладке — обновите страницу.",
+  "Maximum three coaching moments per ride.": "В первой версии доступно до трёх ключевых моментов."
 }
