@@ -75,6 +75,8 @@ def test_review_requires_owner_role_csrf(client, app_state):
 
 def test_saved_coach_feedback_takes_priority_for_new_director_plan(client, app_state, monkeypatch):
     # The plan generator must receive the coach correction, not the earlier AI diagnosis.
+    with app_state[0].database.connect(write=True) as db:
+        db.execute("UPDATE users SET role='coach' WHERE username='alice'")
     job = main.job_manager.create_job(
         user_id=1, owner_user_id=1, file_path=str(main.UPLOAD_DIR / "surf.mp4"),
         original_filename="surf.mp4",
