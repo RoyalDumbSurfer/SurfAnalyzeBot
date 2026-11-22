@@ -1,0 +1,17 @@
+{% if can_review %}
+<section id="director-editor" hidden
+         data-save-url="/api/video-director/{{ job.id }}/review"
+         class="mt-5 border-t border-gray-700 pt-5">
+    <h4 class="text-lg font-semibold text-accent mb-2">{{ t("Review coaching moments") }}</h4>
+    <p class="text-sm text-gray-400 mb-4">{{ t("Correct the AI notes and frame anchors. Changes are private until saved. Original video and AI suggestions remain unchanged.") }}</p>
+    <div id="director-edit-list" class="space-y-4"></div>
+    <div class="flex flex-wrap gap-3 mt-4">
+        <button type="button" id="director-add"
+                class="px-4 py-3 rounded-xl border border-gray-600 min-h-11">{{ t("Add moment") }}</button>
+        <button type="button" id="director-save"
+                class="glow-btn px-4 py-3 rounded-xl text-black font-semibold min-h-11">{{ t("Save reviewed timeline") }}</button>
+    </div>
+    <p id="director-edit-status" class="text-sm text-gray-400 mt-3" role="status"></p>
+</section>
+{% endif %}
+<script type="application/json" id="director-existing-review">{{ job.director_review | tojson }}</script>

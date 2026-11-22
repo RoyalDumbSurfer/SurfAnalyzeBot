@@ -48,5 +48,6 @@
         {{ t("Experimental preview: arrows appear only on sampled freeze frames. MP4 export is not available yet.") }}
         <a href="{{ video_url }}" download class="ml-2 text-accent underline">{{ t("Download original video") }}</a>
     </p>
+    {% include "video_director_editor.html" %}
     <script type="application/json" id="director-existing-plan">{{ job.director_plan | tojson }}</script>
 </section>

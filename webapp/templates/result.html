@@ -301,4 +301,5 @@
 </script>
 {% if can_review %}{% include "coach_review_script.html" %}{% endif %}
 {% if video_url %}{% include "video_director_script.html" %}{% endif %}
+{% if video_url and can_review %}{% include "video_director_editor_script.html" %}{% endif %}
 {% endblock %}
