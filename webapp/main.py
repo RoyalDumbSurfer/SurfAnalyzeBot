@@ -28,10 +28,10 @@ from webapp.i18n import language, translate, template_translate, SUPPORTED_LANGU
 from webapp.routes.download import private_file
 from fastapi.responses import FileResponse
 
-from jobs.job_manager import JobManager
+from jobs.job_manager import JobManager, DirectorReviewConflict
 from jobs.job_model import JobStatus
 from webapp.routes.download import router as download_router
-from services.video_director import VideoDirectorError, generate_video_plan
+from services.video_director import VideoDirectorError, generate_video_plan, validate_plan
 from services.openai_surf_analysis_provider import SurfAnalysisProviderError
 
 
@@ -89,10 +89,12 @@ class UploadBodyLimit:
 
     async def __call__(self, scope, receive, send):
         coach_request = scope.get('path', '').startswith('/api/coach-reviews/')
+        review_request = scope.get('path', '').startswith('/api/video-director/') and scope['path'].endswith('/review')
         invite_request = scope.get('path', '').startswith('/admin/invites/')
-        if scope["type"] != "http" or (not coach_request and not invite_request and scope["path"] not in {"/upload", "/login", "/register", "/logout", "/language", "/api/invites"}):
+        if scope["type"] != "http" or (not coach_request and not review_request and not invite_request and scope["path"] not in {"/upload", "/login", "/register", "/logout", "/language", "/api/invites"}):
             return await self.app(scope, receive, send)
-        limit = 512 * 1024 if coach_request else (settings.MAX_FILE_SIZE + 1024 * 1024 if scope["path"] == "/upload" else 16 * 1024)
+        limit = (32 * 1024 if review_request else 512 * 1024 if coach_request else
+                 settings.MAX_FILE_SIZE + 1024 * 1024 if scope["path"] == "/upload" else 16 * 1024)
         received = 0
 
         async def limited_receive():
@@ -101,7 +103,7 @@ class UploadBodyLimit:
             received += len(message.get("body", b""))
             # Allow multipart headers; the endpoint enforces the exact file limit.
             if received > limit:
-                if coach_request:
+                if coach_request or review_request:
                     raise HTTPException(status_code=413, detail='Review is too large')
                 # Starlette closes temporary multipart files on this exception.
                 raise MultiPartException("Video is too large.")
@@ -565,12 +567,53 @@ async def generate_director_preview(request: Request, job_id: str):
         frames.append(private_file(EXTRACTED_FRAMES_DIR / job_id / filename, EXTRACTED_FRAMES_DIR))
 
     try:
-        plan = await run_in_threadpool(generate_video_plan, frames, job.analysis_result)
+        # A saved human correction overrides earlier AI observations when planning.
+        analysis_for_director = dict(job.analysis_result)
+        expert_review = await run_in_threadpool(CoachStore(settings.DATABASE_PATH).get, job.id, current_user(request).id)
+        if expert_review and expert_review.get("status") == "saved":
+            for field in COACH_FIELDS:
+                correction = expert_review["corrections"].get(field)
+                if correction:
+                    analysis_for_director[field] = correction
+        plan = await run_in_threadpool(generate_video_plan, frames, analysis_for_director)
         await run_in_threadpool(job_manager.update_job, job.id, director_plan=plan)
     except (VideoDirectorError, SurfAnalysisProviderError, OSError, sqlite3.Error):
         logger.warning("Video director preview failed for job %s", job_id)
         return JSONResponse({"ok": False, "error": "Could not generate coaching preview"}, status_code=502)
     return {"ok": True, "plan": plan}
+
+
+@app.post("/api/video-director/{job_id}/review")
+async def save_director_review(request: Request, job_id: str):
+    """Coach-reviewed cue text/anchors; original AI plan stays intact."""
+    user = coach_user(request)
+    check_csrf(request, "")
+    job = owned_job(request, job_id)
+    if job.status != JobStatus.DONE or not job.director_plan:
+        raise HTTPException(status_code=409, detail="Generate a video director plan first")
+    try:
+        data = await request.json()
+        if not isinstance(data, dict) or set(data) != {"revision", "cues"}:
+            raise ValueError("Invalid review payload")
+        revision = data["revision"]
+        if type(revision) is not int or not 0 <= revision < 1000000:
+            raise ValueError("Invalid review revision")
+        edited_plan = validate_plan({"cues": data["cues"]}, job.director_plan["frame_count"])
+    except (ValueError, TypeError, KeyError, VideoDirectorError):
+        raise HTTPException(status_code=400, detail="Invalid director review") from None
+    try:
+        review = await run_in_threadpool(job_manager.save_director_review,
+                                         job.id, user.id, revision, edited_plan)
+    except DirectorReviewConflict:
+        raise HTTPException(status_code=409, detail="Director review changed; reload") from None
+    except LookupError:
+        raise HTTPException(status_code=404, detail="Not found") from None
+    except ValueError:
+        raise HTTPException(status_code=409, detail="Director timeline changed") from None
+    except sqlite3.Error:
+        logger.warning("Video director review could not be saved for job %s", job_id)
+        raise HTTPException(status_code=503, detail="Review storage unavailable") from None
+    return {"ok": True, "review": review}
 
 
 @app.get("/result/{job_id}", response_class=HTMLResponse)
