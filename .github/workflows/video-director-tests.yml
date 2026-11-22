@@ -18,6 +18,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     env:
+      PYTHONPATH: .
       API_TOKEN: dummy_token_for_tests
       SESSION_SECRET: test-only-signing-key-with-at-least-32-characters
       SESSION_COOKIE_SECURE: "false"
@@ -33,4 +34,4 @@ jobs:
       - name: Compile Python modules
         run: python -m compileall -q services jobs webapp tests
       - name: Run pytest
-        run: pytest -q
+        run: python -m pytest -q
