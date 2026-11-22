@@ -28,13 +28,22 @@ source surfer's movements when showing coaching evidence.
 generate a timeline, review the placement, replay; another account cannot access
 the source or its plan; original video bytes remain intact.
 
-### Stage 2 — Coach verification and editing
+### Stage 2 — Coach verification and editing (draft PR #5)
 
-- Editable cues: anchor frame/time, annotation title/note, arrow endpoints.
-- Use corrected coach analysis/review notes rather than blindly trusting AI prose.
-- Save `reviewed_plan` as separately versioned data; preserve original AI draft.
-- Treat changes as expert labels for evaluating the director.
-- Add seek/playhead UX, re-generation controls, and explicit per-job cost limits.
+Implemented in the editor branch:
+- Edit cue title, note and sampled-frame anchor; inspect frame, add/delete cues,
+  remove unsupported AI arrows (up to three moments).
+- Use saved expert textual corrections when generating a new AI plan.
+- Save a separately versioned and revision-guarded `director_review`; keep the
+  original AI plan untouched and show the expert review in the browser preview.
+- Enforce coach role, video ownership, CSRF, strict data validation and a small
+  request-body limit.
+
+Still needed before a polished coach editing experience:
+- Direct drawing/repositioning of arrow endpoints on the actual frame.
+- Coach approval status and a safe way to regenerate a new AI draft.
+- Precise timestamp adjustment, not just a sampled-frame selector.
+- Explicit per-job model cost limits and live Android/iOS browser QA.
 
 ### Stage 3 — Render real annotated MP4
 
