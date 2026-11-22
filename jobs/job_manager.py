@@ -12,6 +12,10 @@ from storage.database import Database
 from .job_model import Job, JobStatus
 
 
+class DirectorReviewConflict(Exception):
+    """Optimistic-concurrency guard for manual video coaching edits."""
+
+
 class JobManager:
     """Transactional SQLite storage with the existing worker-facing interface."""
 
@@ -64,6 +68,37 @@ class JobManager:
             values.append(owner_user_id)
         with self.database.connect() as db:
             return self._job(db.execute(query, values).fetchone())
+
+    def save_director_review(self, job_id: str, owner_user_id: int, expected_revision: int,
+                             plan: dict) -> dict:
+        """Atomically save an expert-edited timeline without overwriting a parallel edit."""
+        with self.database.connect(write=True) as db:
+            row = db.execute(
+                "SELECT status,payload FROM jobs WHERE id=? AND owner_user_id=?",
+                (job_id, owner_user_id),
+            ).fetchone()
+            if row is None:
+                raise LookupError("Video not found")
+            if row["status"] != JobStatus.DONE.value:
+                raise ValueError("Analysis not completed")
+
+            payload = json.loads(row["payload"])
+            original = payload.get("director_plan")
+            if not isinstance(original, dict) or not isinstance(original.get("frame_count"), int):
+                raise ValueError("No AI director timeline exists")
+            if plan.get("frame_count") != original["frame_count"]:
+                raise ValueError("Frame sequence changed")
+
+            previous = payload.get("director_review")
+            revision = previous.get("revision", 0) if isinstance(previous, dict) else 0
+            if expected_revision != revision:
+                raise DirectorReviewConflict("Director review changed in another tab")
+
+            saved = {"revision": revision + 1, "plan": plan}
+            payload["director_review"] = saved
+            payload["updated_at"] = datetime.utcnow().isoformat()
+            db.execute("UPDATE jobs SET payload=? WHERE id=?", (json.dumps(payload), job_id))
+            return saved
 
     def update_job(self, job_id: str, *, status=None, result_path=None, error_message=None,
                    analysis_result=None, extracted_frame_paths=None, coach_knowledge=None,
