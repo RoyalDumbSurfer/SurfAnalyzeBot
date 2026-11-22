@@ -21,7 +21,8 @@
         count: {{ t("Coaching moments:") | tojson }},
         unsupported: {{ t("This browser cannot play the original format. Download it or upload an H.264 MP4.") | tojson }}
     };
-    let plan = JSON.parse(document.getElementById("director-existing-plan").textContent);
+    const reviewed = JSON.parse(document.getElementById("director-existing-review").textContent);
+    let plan = (reviewed && reviewed.plan) || JSON.parse(document.getElementById("director-existing-plan").textContent);
     let activeCue = null;
     let lastTime = 0;
     const shown = new Set();
@@ -135,12 +136,23 @@
                 shown.clear();
                 hideCue();
                 updateStatus();
+                root.dispatchEvent(new Event("surfanalyze-plan-changed"));
             } catch (error) {
                 status.textContent = messages.error;
                 generateButton.disabled = false;
             }
         });
     }
+    window.SurfAnalyzeVideoDirector = {
+        getPlan: function () { return plan; },
+        setPlan: function (next) {
+            plan = next;
+            shown.clear();
+            hideCue();
+            updateStatus();
+            root.dispatchEvent(new Event("surfanalyze-plan-changed"));
+        }
+    };
     updateStatus();
 }());
 </script>
