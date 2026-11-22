@@ -21,6 +21,8 @@
     </h2>
 </div>
 
+{% if video_url %}{% include "video_director.html" %}{% endif %}
+
 {% if job.extracted_frame_paths %}
 <div class="glass border border-gray-800 p-10 rounded-2xl mb-10">
     <h3 class="font-semibold text-accent mb-6">{{ t("Representative Frames") }}</h3>
@@ -298,4 +300,5 @@
     }());
 </script>
 {% if can_review %}{% include "coach_review_script.html" %}{% endif %}
+{% if video_url %}{% include "video_director_script.html" %}{% endif %}
 {% endblock %}

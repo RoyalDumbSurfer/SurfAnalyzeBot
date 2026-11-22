@@ -15,7 +15,7 @@ from datetime import datetime, timezone
 from urllib.parse import unquote
 
 from config import settings
-from utils.video_formats import VIDEO_MIME_TYPES, GENERIC_MIME_TYPES
+from utils.video_formats import VIDEO_MIME_TYPES, VIDEO_EXTENSIONS, GENERIC_MIME_TYPES
 from starlette.concurrency import run_in_threadpool
 from starlette.exceptions import HTTPException
 from starlette.formparsers import MultiPartException
@@ -31,6 +31,8 @@ from fastapi.responses import FileResponse
 from jobs.job_manager import JobManager
 from jobs.job_model import JobStatus
 from webapp.routes.download import router as download_router
+from services.video_director import VideoDirectorError, generate_video_plan
+from services.openai_surf_analysis_provider import SurfAnalysisProviderError
 
 
 # =========================
@@ -541,6 +543,36 @@ def api_job_status(request: Request, job_id: str):
     }
 
 
+@app.post("/api/video-director/{job_id}")
+async def generate_director_preview(request: Request, job_id: str):
+    """One coach-triggered plan per completed video. Never alters the upload."""
+    coach_user(request)
+    check_csrf(request, "")
+    job = owned_job(request, job_id)
+    if job.status != JobStatus.DONE:
+        raise HTTPException(status_code=409, detail="Analysis is not complete")
+    if job.director_plan is not None:
+        return {"ok": True, "plan": job.director_plan}
+    if not job.analysis_result or not job.extracted_frame_paths or len(job.extracted_frame_paths) < 2:
+        raise HTTPException(status_code=409, detail="Coaching frames are unavailable")
+
+    frames = []
+    for url in job.extracted_frame_paths:
+        filename = Path(url).name
+        if (url != f"/frames/{job_id}/{filename}"
+                or not re.fullmatch(r"frame_[0-9]{2}\.jpg", filename)):
+            raise HTTPException(status_code=404, detail="Coaching frame not found")
+        frames.append(private_file(EXTRACTED_FRAMES_DIR / job_id / filename, EXTRACTED_FRAMES_DIR))
+
+    try:
+        plan = await run_in_threadpool(generate_video_plan, frames, job.analysis_result)
+        await run_in_threadpool(job_manager.update_job, job.id, director_plan=plan)
+    except (VideoDirectorError, SurfAnalysisProviderError, OSError, sqlite3.Error):
+        logger.warning("Video director preview failed for job %s", job_id)
+        return JSONResponse({"ok": False, "error": "Could not generate coaching preview"}, status_code=502)
+    return {"ok": True, "plan": plan}
+
+
 @app.get("/result/{job_id}", response_class=HTMLResponse)
 def result_page(request: Request, job_id: str):
     job = owned_job(request, job_id)
@@ -563,6 +595,7 @@ def result_page(request: Request, job_id: str):
             "can_review": can_review,
             "coach_review": review,
             "coach_fields": COACH_FIELDS,
+            "video_url": f"/uploads/{Path(job.file_path).name}" if Path(job.file_path).suffix.lower() in VIDEO_EXTENSIONS else None,
         },
     )
 

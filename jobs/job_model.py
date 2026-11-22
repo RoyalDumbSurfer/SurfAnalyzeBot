@@ -64,6 +64,7 @@ class Job:
     owner_user_id: Optional[int] = None
     analysis_language: Optional[str] = None
     coach_knowledge: Optional[Dict[str, Any]] = None
+    director_plan: Optional[Dict[str, Any]] = None
 
     @property
     def display_filename(self) -> str:
@@ -76,6 +77,7 @@ class Job:
             "owner_user_id": self.owner_user_id,
             "analysis_language": self.analysis_language,
             "coach_knowledge": self.coach_knowledge,
+            "director_plan": self.director_plan,
             "chat_id": self.chat_id,
             "file_path": self.file_path,
             "original_filename": self.original_filename,
@@ -97,6 +99,7 @@ class Job:
             owner_user_id=data.get("owner_user_id"),
             analysis_language=data.get("analysis_language"),
             coach_knowledge=data.get("coach_knowledge"),
+            director_plan=data.get("director_plan"),
             chat_id=safe_int(data.get("chat_id"), default=0) if data.get("chat_id") is not None else None,
             file_path=data["file_path"],
             original_filename=data.get("original_filename"),

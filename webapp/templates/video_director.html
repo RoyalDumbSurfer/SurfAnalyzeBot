@@ -1,0 +1,52 @@
+{# First web-only preview: the original recording is never rewritten. #}
+<section id="video-director"
+         class="glass border border-gray-800 rounded-2xl p-4 sm:p-7 mb-10"
+         data-generate-url="/api/video-director/{{ job.id }}"
+         data-csrf="{{ csrf_token(request) }}">
+    <div class="flex flex-wrap justify-between items-center gap-3 mb-4">
+        <div>
+            <h3 class="text-xl font-semibold text-accent">{{ t("Video Coach Preview") }}</h3>
+            <p class="text-sm text-gray-400">{{ t("Frame-anchored AI draft. The source video stays unchanged.") }}</p>
+        </div>
+        {% if can_review and job.extracted_frame_paths and job.extracted_frame_paths|length > 1 %}
+        <button type="button" id="director-generate"
+                class="glow-btn px-4 py-3 rounded-xl font-semibold text-black min-h-11">
+            {{ t("Generate coaching timeline") }}
+        </button>
+        {% endif %}
+    </div>
+
+    <div class="relative w-full aspect-video overflow-hidden rounded-xl bg-black" id="video-director-stage">
+        <video id="video-director-player" class="h-full w-full object-contain"
+               src="{{ video_url }}" controls playsinline preload="metadata"
+               aria-label="{{ t('Original surfing video') }}"></video>
+        <svg id="director-arrow-layer" class="absolute pointer-events-none"
+             viewBox="0 0 1000 1000" preserveAspectRatio="none" hidden
+             aria-hidden="true">
+            <defs>
+                <marker id="director-arrow-head" markerWidth="12" markerHeight="12"
+                        refX="9" refY="4" orient="auto" markerUnits="strokeWidth">
+                    <path d="M0 0L10 4L0 8z" fill="#00e5ff"></path>
+                </marker>
+            </defs>
+            <line id="director-arrow" stroke="#00e5ff" stroke-width="8"
+                  stroke-linecap="round" marker-end="url(#director-arrow-head)"></line>
+        </svg>
+    </div>
+
+    <div id="director-cue-card" hidden
+         class="mt-4 rounded-xl border border-cyan-800 bg-cyan-950/30 p-4" aria-live="polite">
+        <p id="director-cue-title" class="font-semibold text-accent mb-1"></p>
+        <p id="director-cue-note" class="text-sm text-gray-200 mb-3"></p>
+        <button id="director-continue" type="button"
+                class="px-4 py-2 min-h-11 border border-cyan-700 rounded-lg">
+            {{ t("Continue video") }}
+        </button>
+    </div>
+    <p id="director-status" class="mt-3 text-sm text-gray-400" role="status"></p>
+    <p class="mt-2 text-xs text-gray-500">
+        {{ t("Experimental preview: arrows appear only on sampled freeze frames. MP4 export is not available yet.") }}
+        <a href="{{ video_url }}" download class="ml-2 text-accent underline">{{ t("Download original video") }}</a>
+    </p>
+    <script type="application/json" id="director-existing-plan">{{ job.director_plan | tojson }}</script>
+</section>
