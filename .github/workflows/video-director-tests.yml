@@ -1,6 +1,9 @@
 name: Video Director checks
 
 on:
+  push:
+    branches:
+      - codex/video-director-coach-editor
   pull_request:
     paths:
       - "services/video_director.py"
