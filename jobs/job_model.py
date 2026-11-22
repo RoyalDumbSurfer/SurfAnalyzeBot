@@ -65,6 +65,7 @@ class Job:
     analysis_language: Optional[str] = None
     coach_knowledge: Optional[Dict[str, Any]] = None
     director_plan: Optional[Dict[str, Any]] = None
+    director_review: Optional[Dict[str, Any]] = None
 
     @property
     def display_filename(self) -> str:
@@ -78,6 +79,7 @@ class Job:
             "analysis_language": self.analysis_language,
             "coach_knowledge": self.coach_knowledge,
             "director_plan": self.director_plan,
+            "director_review": self.director_review,
             "chat_id": self.chat_id,
             "file_path": self.file_path,
             "original_filename": self.original_filename,
@@ -100,6 +102,7 @@ class Job:
             analysis_language=data.get("analysis_language"),
             coach_knowledge=data.get("coach_knowledge"),
             director_plan=data.get("director_plan"),
+            director_review=data.get("director_review"),
             chat_id=safe_int(data.get("chat_id"), default=0) if data.get("chat_id") is not None else None,
             file_path=data["file_path"],
             original_filename=data.get("original_filename"),
