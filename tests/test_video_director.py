@@ -30,6 +30,7 @@ def test_no_confident_annotations_is_allowed():
                "arrow": {"x1": 10, "y1": 10, "x2": 10, "y2": 10}}]},
     {"cues": [{"frame_number": 2, "title": "No", "note": "Wrong", "arrow": None}] * 4},
     {"cues": {"frame_number": 2}},
-]):
+])
+def test_bad_cues_rejected(bad):
     with pytest.raises(VideoDirectorError):
         validate_plan(bad, 15)
