@@ -27,7 +27,7 @@ jobs:
       DATABASE_PATH: /tmp/surfanalyze-ci.sqlite3
       API_TOKEN: dummy_token_for_tests
       SESSION_SECRET: test-only-signing-key-with-at-least-32-characters
-      SESSION_COOKIE_SECURE: "false"
+      SESSION_COOKIE_SECURE: "true"
     steps:
       - uses: actions/checkout@v4
       - name: Set up Python

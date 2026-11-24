@@ -44,6 +44,7 @@ For real browser coverage, install Playwright outside the repository and set `SU
 - Preview pauses now display the exact stored JPEG instead of relying on approximate browser seeking for arrow evidence.
 - Disable editor controls during a save to prevent edits from disappearing beneath the returned saved revision.
 - Repaired five obsolete Telegram test expectations/mocks without changing Telegram handlers, and corrected the unsupported pytest `python_paths` option.
+- The expanded Linux CI run exposed an inherited workflow setting disabling Secure cookies. CI now uses Secure cookies, matching the HTTPS test client and the existing security assertions; application authentication is unchanged.
 - Full suite: **223 passed, 4 optional browser tests skipped**. Subsequent focused run after the final fixes and an additional portrait case: **33 passed** (renderer, Director, review, web and i18n). Python compilation passed; no repository lint/type configuration was found.
 - Real Edge/Chromium browser flow passed at **1280, 390 and 320px**: sampled pause and visible arrow, text edit/save/reload, add/delete, dirty-export guard, actual MP4 export and download. Page and encoded-frame screenshots were visually inspected; this caught and fixed Windows CRLF caption clipping.
 - Actual FFmpeg tests cover landscape and portrait, first/middle/final cues, encoded duration, H.264/yuv420p, visible arrow/comment pixels, source preservation, cache reuse, ownership/role/CSRF, stale reviews, failure cleanup and probe limits.
