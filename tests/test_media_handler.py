@@ -13,6 +13,7 @@ def mock_bot():
 @pytest.fixture
 def fake_message():
     user = MagicMock()
+    user.id = 123
     user.first_name = "TestUser"
     chat = MagicMock()
     chat.id = 777
@@ -33,7 +34,7 @@ def mock_media_service():
 def test_handle_photo_success(mock_bot, fake_message, mock_media_service):
     handler = MediaHandler(media_service=mock_media_service)
     handler.bot = mock_bot
-    with patch("utils.media_service.save_media_file") as save_media:
+    with patch("handlers.media_handler.save_media_file") as save_media, patch("handlers.media_handler.job_manager") as manager:
         save_media.return_value = ("somefile.jpg", None)
         file_info = MagicMock()
         file_info.file_path = "photos/photo.jpg"
@@ -41,13 +42,13 @@ def test_handle_photo_success(mock_bot, fake_message, mock_media_service):
         mock_bot.get_file.return_value = file_info
         mock_bot.download_file.return_value = b"fake_data"
         handler.handle_media(fake_message)
-        calls = [call.args[1] for call in mock_bot.send_message.call_args_list]
-        assert any("✅ Photo загружен как" in msg for msg in calls)
+        assert 'queued' in mock_bot.send_message.call_args.kwargs['text']
+        manager.create_job.assert_called_once()
 
 def test_handle_photo_save_error(mock_bot, fake_message, mock_media_service):
     handler = MediaHandler(media_service=mock_media_service)
     handler.bot = mock_bot
-    with patch("utils.media_service.save_media_file") as save_media:
+    with patch("handlers.media_handler.save_media_file") as save_media, patch("handlers.media_handler.job_manager") as manager:
         save_media.return_value = (None, "Ошибка сохранения")
         file_info = MagicMock()
         file_info.file_path = "photos/photo.jpg"
@@ -56,8 +57,8 @@ def test_handle_photo_save_error(mock_bot, fake_message, mock_media_service):
         mock_bot.download_file.return_value = b"fake_data"
         handler.handle_media(fake_message)
         calls = [call.args[1] for call in mock_bot.send_message.call_args_list]
-        # Проверяем, что всё равно было сообщение об успешной загрузке
-        assert any("✅ Photo загружен как" in msg for msg in calls)
+        assert calls == ["Ошибка сохранения"]
+        manager.create_job.assert_not_called()
 
 
 

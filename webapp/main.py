@@ -32,6 +32,7 @@ from jobs.job_manager import JobManager, DirectorReviewConflict
 from jobs.job_model import JobStatus
 from webapp.routes.download import router as download_router
 from services.video_director import VideoDirectorError, generate_video_plan, validate_plan
+from services.video_renderer import RenderError, RenderBusy, render_key, render_video
 from services.openai_surf_analysis_provider import SurfAnalysisProviderError
 
 
@@ -614,6 +615,50 @@ async def save_director_review(request: Request, job_id: str):
         logger.warning("Video director review could not be saved for job %s", job_id)
         raise HTTPException(status_code=503, detail="Review storage unavailable") from None
     return {"ok": True, "review": review}
+
+
+def coaching_export_path(request, job, key):
+    return request.app.state.results_dir / 'coaching' / job.id / (key + '.mp4')
+
+
+@app.post("/api/video-director/{job_id}/render/{revision}")
+async def render_director_video(request: Request, job_id: str, revision: int):
+    coach_user(request)
+    check_csrf(request, "")
+    job = owned_job(request, job_id)
+    review = job.director_review
+    if job.status != JobStatus.DONE or not review or review.get('revision') != revision:
+        raise HTTPException(status_code=409, detail="Save and reload the reviewed timeline first")
+    source = private_file(Path(job.file_path), UPLOAD_DIR)
+    frames = []
+    for url in job.extracted_frame_paths or []:
+        filename = Path(url).name
+        if url != f'/frames/{job.id}/{filename}' or not re.fullmatch(r'frame_[0-9]{2}\.jpg', filename):
+            raise HTTPException(status_code=404, detail="Coaching frame not found")
+        frames.append(private_file(EXTRACTED_FRAMES_DIR / job.id / filename, EXTRACTED_FRAMES_DIR))
+    key = render_key(review)
+    try:
+        await run_in_threadpool(render_video, source, frames, review,
+                                coaching_export_path(request, job, key))
+    except RenderBusy:
+        raise HTTPException(status_code=429, detail="Another export is running; retry shortly") from None
+    except (RenderError, OSError):
+        logger.warning('Coaching export failed for job %s', job.id)
+        raise HTTPException(status_code=503, detail="Could not export video; check video length and frame availability") from None
+    latest = await run_in_threadpool(job_manager.get_job, job.id, owner_user_id=current_user(request).id)
+    if not latest or latest.director_review != review:
+        raise HTTPException(status_code=409, detail="Timeline changed during export; export the saved version again")
+    return {'ok': True, 'url': f'/coaching-video/{job.id}/{key}', 'revision': revision}
+
+
+@app.get('/coaching-video/{job_id}/{key}')
+def download_coaching_video(request: Request, job_id: str, key: str):
+    job = owned_job(request, job_id)
+    if (job.status != JobStatus.DONE or not job.director_review
+            or key != render_key(job.director_review)):
+        raise HTTPException(status_code=404, detail='Not found')
+    path = private_file(coaching_export_path(request, job, key), request.app.state.results_dir)
+    return FileResponse(path, media_type='video/mp4', filename='surfanalyze-coaching.mp4')
 
 
 @app.get("/result/{job_id}", response_class=HTMLResponse)

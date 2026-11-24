@@ -14,6 +14,32 @@
     const previous = JSON.parse(document.getElementById("director-existing-review").textContent);
     let revision = previous && Number.isInteger(previous.revision) ? previous.revision : 0;
     let edits = [];
+    const renderButton = document.getElementById('director-render');
+    const renderStatus = document.getElementById('director-render-status');
+    const download = document.getElementById('director-download');
+    let dirty = false;
+    let rendering = false;
+    function updateExport() { renderButton.disabled = dirty || revision === 0 || rendering; }
+    renderButton.addEventListener('click', async function () {
+        rendering = true;
+        updateExport();
+        download.hidden = true;
+        renderStatus.textContent = {{ t("Rendering video. Keep this page open...") | tojson }};
+        const exportedRevision = revision;
+        try {
+            const response = await fetch(root.dataset.generateUrl + '/render/' + revision, {
+                method: 'POST', credentials: 'same-origin', headers: {'X-CSRF-Token': root.dataset.csrf}
+            });
+            if (!response.ok) throw new Error('Export failed');
+            const payload = await response.json();
+            if (dirty || revision !== exportedRevision) throw new Error('Timeline changed');
+            download.href = payload.url;
+            download.hidden = false;
+            renderStatus.textContent = {{ t("Coaching MP4 is ready.") | tojson }};
+        } catch (error) {
+            renderStatus.textContent = {{ t("Could not export. Save or reload the timeline and retry; check the 3-minute limit.") | tojson }};
+        } finally { rendering = false; updateExport(); }
+    });
     const labels = {
         moment: {{ t("Moment") | tojson }},
         anchor: {{ t("Key frame") | tojson }},
@@ -41,6 +67,10 @@
     }
 
     function changed() {
+        dirty = true;
+        download.hidden = true;
+        if (!rendering) renderStatus.textContent = '';
+        updateExport();
         status.textContent = labels.unsaved;
     }
 
@@ -161,6 +191,8 @@
 
     save.addEventListener("click", async function () {
         save.disabled = true;
+        add.disabled = true;
+        list.querySelectorAll('input,select,textarea,button').forEach(el => { el.disabled = true; });
         status.textContent = labels.saving;
         try {
             const response = await fetch(editor.dataset.saveUrl, {
@@ -173,16 +205,22 @@
             const payload = await response.json();
             if (!payload.ok || !payload.review || !payload.review.plan) throw new Error("Unexpected review response");
             revision = payload.review.revision;
+            dirty = false;
+            download.hidden = true;
+            updateExport();
             director.setPlan(payload.review.plan);
             status.textContent = labels.saved;
         } catch (error) {
             status.textContent = labels.problem;
         } finally {
             save.disabled = false;
+            buildRows();
+            updateExport();
         }
     });
 
     editor.parentElement.addEventListener("surfanalyze-plan-changed", loadFromPlan);
     loadFromPlan();
+    updateExport();
 }());
 </script>

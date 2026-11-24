@@ -20,6 +20,8 @@
         <video id="video-director-player" class="h-full w-full object-contain"
                src="{{ video_url }}" controls playsinline preload="metadata"
                aria-label="{{ t('Original surfing video') }}"></video>
+        <img id="director-still" hidden class="absolute inset-0 h-full w-full object-contain"
+             alt="{{ t('Coaching frame') }}">
         <svg id="director-arrow-layer" class="absolute pointer-events-none"
              viewBox="0 0 1000 1000" preserveAspectRatio="none" hidden
              aria-hidden="true">
@@ -45,9 +47,10 @@
     </div>
     <p id="director-status" class="mt-3 text-sm text-gray-400" role="status"></p>
     <p class="mt-2 text-xs text-gray-500">
-        {{ t("Experimental preview: arrows appear only on sampled freeze frames. MP4 export is not available yet.") }}
+        {{ t("Arrows appear only on sampled freeze frames. Save a reviewed timeline to export a coaching MP4.") }}
         <a href="{{ video_url }}" download class="ml-2 text-accent underline">{{ t("Download original video") }}</a>
     </p>
     {% include "video_director_editor.html" %}
     <script type="application/json" id="director-existing-plan">{{ job.director_plan | tojson }}</script>
+    <script type="application/json" id="director-frame-urls">{{ (job.extracted_frame_paths or []) | tojson }}</script>
 </section>

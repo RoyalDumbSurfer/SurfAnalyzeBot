@@ -47,6 +47,10 @@ Still needed before a polished coach editing experience:
 
 ### Stage 3 — Render real annotated MP4
 
+The first bounded export is implemented; see [FFmpeg rendering](ffmpeg-rendering.md)
+for runtime requirements, validation and limits. The remaining work below is
+outside this first export:
+
 - Background render job with persistent status and retry/idempotency.
 - FFmpeg render from **original** media, timeline, pause/slow-motion,
   composited 2D arrows, wave zones and captions.
@@ -86,5 +90,5 @@ Still needed before a polished coach editing experience:
   may need the source's actual timing metadata.
 - Browser decoding depends on uploaded container/codec.
 - Extra model call costs API usage and may exceed reverse-proxy timeout.
-- The preview is interactive HTML, **not** an exported annotated video.
-- The AI plan currently uses saved analysis, not expert edit history.
+- The preview is interactive HTML; the separate export uses saved coach reviews.
+- Initial AI direction uses saved coach corrections when available.

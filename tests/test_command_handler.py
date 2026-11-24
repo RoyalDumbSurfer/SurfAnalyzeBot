@@ -20,7 +20,8 @@ def test_start_command(mock_bot):
 
     handler.start_callback(message)
 
-    mock_bot.send_message.assert_called_once_with(
-        123,
-        "Привет, TestUser! 👋\nОтправь фото или видео для разбора серфинга."
-    )
+    mock_bot.send_message.assert_called_once()
+    sent = mock_bot.send_message.call_args.kwargs
+    assert sent['chat_id'] == 123
+    assert 'TestUser' in sent['text'] and 'SurfAnalyze' in sent['text']
+    assert sent['reply_markup'].keyboard
