@@ -190,5 +190,13 @@
   "Unsaved timeline changes": "Есть несохранённые изменения сценария.",
   "Saving coaching timeline...": "Сохраняем сценарий разбора…",
   "Could not save the review. Check moment positions, fields, or refresh if another tab edited it.": "Не удалось сохранить: проверьте кадры и текст. Если сценарий изменён в другой вкладке — обновите страницу.",
-  "Maximum three coaching moments per ride.": "В первой версии доступно до трёх ключевых моментов."
+  "Maximum three coaching moments per ride.": "В первой версии доступно до трёх ключевых моментов.",
+  "Coaching frame": "Кадр для разбора",
+  "Export coaching MP4": "Создать MP4 с разбором",
+  "Download coaching MP4": "Скачать MP4 с разбором",
+  "Save your timeline before export. Videos up to 3 minutes; silent MP4 with 3-second pauses and 0.5x slow motion before each pause.": "Сохраните сценарий перед экспортом. Видео до 3 минут; MP4 без звука с паузами по 3 секунды и замедлением 0,5× перед каждой паузой.",
+  "Rendering video. Keep this page open...": "Создаём видео. Оставьте страницу открытой…",
+  "Coaching MP4 is ready.": "MP4 с разбором готов.",
+  "Could not export. Save or reload the timeline and retry; check the 3-minute limit.": "Не удалось создать MP4. Сохраните сценарий или обновите страницу и повторите попытку. Видео должно быть не длиннее 3 минут.",
+  "Arrows appear only on sampled freeze frames. Save a reviewed timeline to export a coaching MP4.": "Стрелки показаны только на выбранных стоп-кадрах. Сохраните проверенный сценарий, чтобы создать MP4 с разбором."
 }

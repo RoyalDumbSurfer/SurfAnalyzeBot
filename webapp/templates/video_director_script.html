@@ -5,6 +5,8 @@
     if (!root) return;
     const video = document.getElementById("video-director-player");
     const stage = document.getElementById("video-director-stage");
+    const still = document.getElementById('director-still');
+    const frameUrls = JSON.parse(document.getElementById('director-frame-urls').textContent);
     const arrowLayer = document.getElementById("director-arrow-layer");
     const arrowLine = document.getElementById("director-arrow");
     const card = document.getElementById("director-cue-card");
@@ -43,7 +45,8 @@
     function hideCue() {
         activeCue = null;
         card.hidden = true;
-        arrowLayer.hidden = true;
+        arrowLayer.setAttribute('hidden', '');
+        still.hidden = true;
     }
 
     function cueTime(cue) {
@@ -55,14 +58,18 @@
         title.textContent = cue.title;
         note.textContent = cue.note;
         card.hidden = false;
+        // The exact sampled JPEG is the evidence for the arrow. Browser seek
+        // times are approximate, especially for variable-frame-rate uploads.
+        still.src = frameUrls[cue.frame_number - 1] || '';
+        still.hidden = !frameUrls[cue.frame_number - 1];
         if (cue.arrow) {
             for (const coordinate of ["x1", "y1", "x2", "y2"]) {
                 arrowLine.setAttribute(coordinate, String(cue.arrow[coordinate]));
             }
             fitArrowLayer();
-            arrowLayer.hidden = false;
+            arrowLayer.removeAttribute('hidden');
         } else {
-            arrowLayer.hidden = true;
+            arrowLayer.setAttribute('hidden', '');
         }
     }
 

@@ -12,6 +12,12 @@
                 class="glow-btn px-4 py-3 rounded-xl text-black font-semibold min-h-11">{{ t("Save reviewed timeline") }}</button>
     </div>
     <p id="director-edit-status" class="text-sm text-gray-400 mt-3" role="status"></p>
+    <div class="mt-4 flex flex-wrap items-center gap-3">
+        <button type="button" id="director-render" class="px-4 py-3 rounded-xl border border-cyan-700 min-h-11 disabled:opacity-50">{{ t("Export coaching MP4") }}</button>
+        <a id="director-download" hidden class="text-accent underline">{{ t("Download coaching MP4") }}</a>
+    </div>
+    <p class="mt-2 text-xs text-gray-400">{{ t("Save your timeline before export. Videos up to 3 minutes; silent MP4 with 3-second pauses and 0.5x slow motion before each pause.") }}</p>
+    <p id="director-render-status" class="mt-2 text-sm text-gray-400" role="status"></p>
 </section>
 {% endif %}
 <script type="application/json" id="director-existing-review">{{ job.director_review | tojson }}</script>

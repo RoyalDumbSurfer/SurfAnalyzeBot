@@ -14,6 +14,7 @@ def fake_bot():
 @pytest.fixture
 def fake_user_message():
     user = MagicMock()
+    user.id = 123
     user.first_name = "Tester"
     chat = MagicMock()
     chat.id = 111
@@ -30,7 +31,7 @@ def test_bot_photo_upload_flow(fake_bot, fake_user_message):
     mock_media_service.process_media.return_value = "Файл photo успешно обработан."
     handler = MediaHandler(media_service=mock_media_service)
     handler.bot = fake_bot
-    with patch("utils.media_service.save_media_file") as save_media:
+    with patch("handlers.media_handler.save_media_file") as save_media, patch("handlers.media_handler.job_manager") as manager:
         save_media.return_value = ("somefile.jpg", None)
         file_info = MagicMock()
         file_info.file_path = "photos/photo.jpg"
@@ -38,8 +39,8 @@ def test_bot_photo_upload_flow(fake_bot, fake_user_message):
         fake_bot.get_file.return_value = file_info
         fake_bot.download_file.return_value = b"fake_data"
         handler.handle_media(fake_user_message)
-        calls = [call.args[1] for call in fake_bot.send_message.call_args_list]
-        assert any("✅ Photo загружен как" in msg for msg in calls)
+        assert 'queued' in fake_bot.send_message.call_args.kwargs['text']
+        manager.create_job.assert_called_once()
 
 def test_bot_command_start(fake_bot):
     handler = CommandHandler()
@@ -48,7 +49,7 @@ def test_bot_command_start(fake_bot):
     msg.chat.id = 222
     msg.from_user.first_name = "Dean"
     handler.start_callback(msg)
-    calls = [call.args[1] for call in fake_bot.send_message.call_args_list]
+    calls = [call.kwargs['text'] for call in fake_bot.send_message.call_args_list]
     assert any("Привет, Dean!" in msg for msg in calls)
 
 

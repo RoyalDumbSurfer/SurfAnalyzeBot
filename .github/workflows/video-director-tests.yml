@@ -4,9 +4,11 @@ on:
   push:
     branches:
       - codex/video-director-coach-editor
+      - codex/ffmpeg-video-rendering
   pull_request:
     paths:
       - "services/video_director.py"
+      - "services/video_renderer.py"
       - "webapp/**"
       - "jobs/**"
       - "tests/**"
@@ -35,9 +37,11 @@ jobs:
           cache: pip
       - name: Install dependencies
         run: pip install -r requirements.txt
+      - name: Install video tools and Unicode font
+        run: sudo apt-get update && sudo apt-get install -y ffmpeg fonts-dejavu-core
       - name: Compile Python modules
         run: python -m compileall -q services jobs webapp tests
       - name: Bootstrap isolated test database
         run: python -c "from config import settings; from storage.database import Database; Database(settings.DATABASE_PATH)"
-      - name: Run focused video-director tests
-        run: python -m pytest -q tests/test_video_director.py tests/test_video_director_web.py tests/test_video_director_review.py
+      - name: Run regression suite including real FFmpeg exports
+        run: python -m pytest -q
